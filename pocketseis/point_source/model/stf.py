@@ -6,32 +6,47 @@ from pyrocko.guts import Float
 
 class BaseSTF(STF):
     """
-    Base class for STFs in PocketSeis.
+    Base class for STFs.
+
+    Parameters
+    ----------
+    duration : float
+        Source-time function duration in [s].
+    anchor : {-1.0, 0.0, 1.0}, optional
+        Anchor point with respect to source origin-time (default is -1.0).
+        -1.0: left -> source duration [0, T] ~ hypocenter time,
+         0.0: center -> source duration [-T/2, T/2] ~ centroid time,
+        +1.0: right -> source duration [-T, 0] ~ rupture end time.
     """
     duration = Float.T(
         help='Source time function duration in [s] (also called rise '
              'time). It agrees approximately with the rupture duration.')
     anchor = Float.T(
         default=-1.0,
-        help='anchor point with respect to source.time: ( '
+        help='anchor point with respect to source origin-time: '
              '-1.0: left -> source duration [0, T] ~ hypocenter time, '
              ' 0.0: center -> source duration [-T/2, T/2] ~ centroid time, '
-             '+1.0: right -> source duration [-T, 0] ~ rupture end time)')
+             '+1.0: right -> source duration [-T, 0] ~ rupture end time.')
 
     def tminmax_stf(self, tref):
+        """
+        Returns time of first and last samples of the STF.
+        """
         tmin_stf = tref - self.duration*(self.anchor+1.0)*0.5
         tmax_stf = tref + self.duration*(1.0-self.anchor)*0.5
         return tmin_stf, tmax_stf
 
     def base_key(self):
-        """Returns STF name and attribute values."""
+        """
+        Returns STF name and attribute values.
+        """
         return (type(self).__name__, self.duration, self.anchor)
 
 
 class SmoothRampSTF(BaseSTF):
     """
-    Smoothly increasing ramp (from zero to maximum amplitude) source
-    time function for near-field displacement.
+    Smoothly increasing ramp (from zero to maximum amplitude)
+    source-time function for near-field displacement.
     This is based on analytical seismic moment function, M(t), proposed
     by Bruestle & Mueller (1983).
 
@@ -57,8 +72,7 @@ class SmoothRampSTF(BaseSTF):
             # Normalized M(t) -> its maximum amplitude == deltat
             # (in `pyrocko.gf.seismoseizer`, the convolution output in
             # post-processing step is not multiplied by deltat)
-            amplitudes /= np.max(amplitudes)
-            amplitudes *= deltat
+            amplitudes *= (deltat / np.max(amplitudes))
         else:
             amplitudes = np.ones(1)
 
@@ -67,7 +81,7 @@ class SmoothRampSTF(BaseSTF):
 
 class GaussianSTF(BaseSTF):
     """
-    Gaussian-shaped type source time function for far-field displacement
+    Gaussian-shaped type source-time function for far-field displacement
     or near-field velocity.
     This is based on analytical moment-rate function, dM(t)/dt, proposed
     by Bruestle & Mueller (1983).
@@ -103,7 +117,7 @@ class GaussianSTF(BaseSTF):
         return times, amplitudes
 
 
-class GaussianDerivativeSTF(BaseSTF):
+class ZeroCrossingSTF(BaseSTF):
     """
     First derivative of a Gaussian-shaped source-time function for
     far-filed velocity.
@@ -142,3 +156,10 @@ class GaussianDerivativeSTF(BaseSTF):
             amplitudes = np.ones(1)
 
         return times, amplitudes
+
+
+__all__ = """
+    SmoothRampSTF
+    GaussianSTF
+    ZeroCrossingSTF
+""".split()

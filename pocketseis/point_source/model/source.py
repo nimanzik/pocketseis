@@ -5,7 +5,7 @@ from pyrocko import gf, moment_tensor as pmt
 from pyrocko.gf import SourceWithMagnitude, Source
 from pyrocko.guts import Float
 
-from util import basic_rotations
+from ..moment_tensor.rotation import BasicRotationMatrix
 
 
 # ## Some constants used more
@@ -26,7 +26,7 @@ _u = 0.75*_beta - 0.5*np.sin(2*_beta) + 0.0625*np.sin(4*_beta)
 f_interp = interp1d(_u, _beta)
 
 # Elemental rotations
-_R = basic_rotations('xyz')
+_R = BasicRotationMatrix()
 
 
 class MTQTSource(SourceWithMagnitude):
@@ -144,7 +144,7 @@ class MTQTSource(SourceWithMagnitude):
         Rotation through angle ``kappa`` about the z-axis (TT15, eq. 9)
         """
         if self._rotmat_kappa is None:
-            self._rotmat_kappa = _R['z'](-self.kappa)
+            self._rotmat_kappa = _R.about_z(-self.kappa)
         return self._rotmat_kappa
 
     @property
@@ -153,7 +153,7 @@ class MTQTSource(SourceWithMagnitude):
         Rotation through angle ``theta`` about the x-axis (TT15, eq. 9)
         """
         if self._rotmat_theta is None:
-            self._rotmat_theta = _R['x'](self.theta)
+            self._rotmat_theta = _R.about_x(self.theta)
         return self._rotmat_theta
 
     @property
@@ -162,7 +162,7 @@ class MTQTSource(SourceWithMagnitude):
         Rotation through angle ``sigma`` about the z-axis (TT15, eq. 9)
         """
         if self._rotmat_sigma is None:
-            self._rotmat_sigma = _R['z'](self.sigma)
+            self._rotmat_sigma = _R.about_z(self.sigma)
         return self._rotmat_sigma
 
     @property
@@ -183,7 +183,7 @@ class MTQTSource(SourceWithMagnitude):
         Rotation matrix U defined in TT15, eq. 10.
         """
         if self._rotmat_U is None:
-            self._rotmat_U = self.rotmat_V.dot(_R['y'](-pi/4.0))
+            self._rotmat_U = self.rotmat_V.dot(_R.about_y(-pi/4.0))
         return self._rotmat_U
 
     @property
@@ -229,7 +229,7 @@ class MTQTSource(SourceWithMagnitude):
         in Pyrocko to construct a moment tensor).
         """
         if self._m9_ned is None:
-            rotx_pi = _R['x'](pi)
+            rotx_pi = _R.about_x(pi)
             self._m9_ned = np.linalg.multi_dot([
                 rotx_pi, self.m9_nwu, rotx_pi.T])
         return self._m9_ned
@@ -315,6 +315,11 @@ class MTQTSource(SourceWithMagnitude):
     #     # ``from_pyrocko_event`` method in base class
     #     # ``SourceWithMagnitude`` has to be a class method!
     #     return super(MTQTSource, cls).from_pyrocko_event(event, **d)
+
+
+__all__ = """
+    MTQTSource
+""".split()
 
 
 if __name__ == '__main__':
