@@ -1,3 +1,8 @@
+"""
+Module containing customized seismic sources that can be used by the
+`pyrocko.gf.seismosizer.Engine` module to calculate synthetic seismograms.
+"""
+
 import numpy as np
 from scipy.interpolate import interp1d
 
@@ -5,28 +10,16 @@ from pyrocko import gf, moment_tensor as pmt
 from pyrocko.gf import SourceWithMagnitude, Source
 from pyrocko.guts import Float
 
-from ..moment_tensor.rotation import BasicRotationMatrix
+from ..mtensor import ElementalRotations3D
 
 
-# ## Some constants used more
-pi = np.pi
-sqrt2 = np.sqrt(2.0)
-sqrt3 = np.sqrt(3.0)
-sqrt6 = sqrt2 * sqrt3
-
-# ## Lune lambda matrix; constant term in Tape & Tape [2015], eq. (7)
-_lune_lambda_cte = np.array([
-    [sqrt3, -1.0, sqrt2],
-    [0.0, 2.0, sqrt2],
-    [-sqrt3, -1.0, sqrt2]], dtype=np.float) * (1.0/sqrt6)
-
-# ## Map beta parameter to 'u' variable using Tape & Tape [2015], eq. (24a)
-_beta = np.linspace(0.0, pi, 5000)
+# ## Map beta parameter to ``u`` variable using Tape & Tape [2015], eq. (24a)
+_beta = np.linspace(0.0, np.pi, 5000)
 _u = 0.75*_beta - 0.5*np.sin(2*_beta) + 0.0625*np.sin(4*_beta)
 f_interp = interp1d(_u, _beta)
 
-# Elemental rotations
-_R = BasicRotationMatrix()
+# ## Elemental rotations
+_R = ElementalRotations3D()
 
 
 class MTQTSource(SourceWithMagnitude):
@@ -118,13 +111,21 @@ class MTQTSource(SourceWithMagnitude):
         Lune eigenvalue triples (TT15, eq. 7)
         """
         if self._lune_lambda_triple is None:
+            sqrt2 = np.sqrt(2.0)
+            sqrt3 = np.sqrt(3.0)
+            sqrt6 = sqrt2 * sqrt3
+            const = np.array([
+                [sqrt3, -1.0, sqrt2],
+                [0.0, 2.0, sqrt2],
+                [-sqrt3, -1.0, sqrt2]], dtype=np.float) * (1.0/sqrt6)
+
             sin_beta = np.sin(self.beta)
             vec = np.array([
                 sin_beta*np.cos(self.gamma),
                 sin_beta*np.sin(self.gamma),
                 np.cos(self.beta)])
 
-            self._lune_lambda_triple = _lune_lambda_cte.dot(vec)
+            self._lune_lambda_triple = const.dot(vec)
 
         return self._lune_lambda_triple
 
@@ -183,7 +184,7 @@ class MTQTSource(SourceWithMagnitude):
         Rotation matrix U defined in TT15, eq. 10.
         """
         if self._rotmat_U is None:
-            self._rotmat_U = self.rotmat_V.dot(_R.about_y(-pi/4.0))
+            self._rotmat_U = self.rotmat_V.dot(_R.about_y(-np.pi/4.0))
         return self._rotmat_U
 
     @property
@@ -229,7 +230,7 @@ class MTQTSource(SourceWithMagnitude):
         in Pyrocko to construct a moment tensor).
         """
         if self._m9_ned is None:
-            rotx_pi = _R.about_x(pi)
+            rotx_pi = _R.about_x(np.pi)
             self._m9_ned = np.linalg.multi_dot([
                 rotx_pi, self.m9_nwu, rotx_pi.T])
         return self._m9_ned
@@ -328,10 +329,10 @@ if __name__ == '__main__':
     # Following sample calculation of the uniform moment tensor
     # parametrization is taken from Appendix A, Tape & Tape [2015]
 
-    u = 3.0*pi/8.0
+    u = 3.0*np.pi/8.0
     v = -1.0/9.0
-    kappa = 4.0*pi/5.0
-    sigma = -pi/2.0
+    kappa = 4.0*np.pi/5.0
+    sigma = -np.pi/2.0
     h = 3.0/4.0
 
     beta_ref = 1.571

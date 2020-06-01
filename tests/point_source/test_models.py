@@ -3,10 +3,10 @@ import unittest
 import numpy as np
 from scipy.integrate import simps, cumtrapz
 
-import gf_util
+from pocketseis import point_source as ps
 
 
-class GFUtilTestCase(unittest.TestCase):
+class PointSourceModelTestCase(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -22,14 +22,14 @@ class GFUtilTestCase(unittest.TestCase):
 
     def test_stf_smooth_ramp(self):
 
-        stf = gf_util.SmoothRampSTF(duration=1*self.deltat)
+        stf = ps.SmoothRampSTF(duration=1*self.deltat)
         t, a = stf.discretize_t(deltat=self.deltat, tref=self.tref)
         self.assertEqual(a.max(), self.deltat)
         self.assert_ac(
             simps(np.diff(a, prepend=0.0)/self.deltat, x=t), 0.5*self.deltat)
 
         for duration in self.durations:
-            stf = gf_util.SmoothRampSTF(duration=duration, anchor=0.0)
+            stf = ps.SmoothRampSTF(duration=duration, anchor=0.0)
             t, a = stf.discretize_t(deltat=self.deltat, tref=self.tref)
             self.assertEqual(a.max(), self.deltat)
             self.assert_ac(
@@ -38,14 +38,14 @@ class GFUtilTestCase(unittest.TestCase):
     def test_stf_gaussian(self):
 
         for duration in self.durations:
-            stf = gf_util.GaussianSTF(duration=duration, anchor=0.0)
+            stf = ps.GaussianSTF(duration=duration, anchor=0.0)
             t, a = stf.discretize_t(deltat=self.deltat, tref=self.tref)
             self.assert_ac(simps(a, x=t), self.deltat)
 
-    def test_stf_gaussian_derivative(self):
+    def test_stf_zero_crossing(self):
 
         for duration in self.durations:
-            stf = gf_util.GaussianDerivativeSTF(duration=duration, anchor=0.0)
+            stf = ps.ZeroCrossingSTF(duration=duration, anchor=0.0)
             t, a = stf.discretize_t(deltat=self.deltat, tref=self.tref)
             self.assert_ac(simps(a, x=t), 0.0)
             self.assert_ac(

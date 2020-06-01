@@ -1,34 +1,41 @@
+"""
+Utility functions for PocketSeis.
+"""
+
+import os.path as op
+
 import numpy as np
 
 
-def time2index(t, deltat, snap=round):
+def time2index(t, deltat, snap=np.round):
     """
     Returns indedx of  a time value in array of time axis (e.g. of a
     seismic trace) assuming that starting time is zero.
 
     Parameters
     ----------
-    t : float
-        Time value.
+    t : float or array-like
+        Time value(s).
     deltat : float
         Sampling interval in the same unit as `t`.
     snap : callable
         By default, the index where to put `t` in the array of times is
         determined by rounding of `t` to sampling instances `deltat`
-        using Python's buit-in function :py:func:`round`. This behaviour
-        can be changed with the `snap` argument.
+        using Numpy's function :py:func:`numpy.round`. This behaviour
+        can be changed with the `snap` argument (for example, Numpy's
+        functions :py:func:`numpy.floor` or :py:func:`numpy.ceil`).
 
     Returns
     -------
-    idx : int
-        Index of the time value.
+    idx : int or ndarray
+        Indexes of the time value(s).
     """
-    return int(snap(t/deltat))
+    return snap(t/deltat).astype(np.int)
 
 
 def make_time_array(tmin, tmax, deltat):
     """
-    Construct array of time values.
+    Construct 1-D array of time values.
 
     Parameters
     ----------
@@ -39,13 +46,13 @@ def make_time_array(tmin, tmax, deltat):
 
     Returns
     -------
-    times : ndarray
+    times : ndarray, shape of (n_samples,)
         Array of time values.
     """
-    t1 = round(tmin/deltat) * deltat
-    t2 = round(tmax/deltat) * deltat
-    nt = int(round((t2-t1) / deltat)) + 1
-    return np.linspace(t1, t2, nt)
+    start = round(tmin/deltat) * deltat
+    stop = round(tmax/deltat) * deltat
+    num = int(round((stop-start) / deltat)) + 1
+    return np.linspace(start, stop, num, axis=-1)
 
 
 def tuple6_to_symmat(a):
@@ -69,3 +76,7 @@ def tuple6_to_symmat(a):
         [a11, a12, a13],
         [a12, a22, a23],
         [a13, a23, a33]], dtype=np.float)
+
+
+def get_data_file(filename):
+    return op.join(op.split(__file__)[0], 'data', filename)

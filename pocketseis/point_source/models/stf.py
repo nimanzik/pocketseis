@@ -1,7 +1,13 @@
+"""
+Module containing customized source-time functions (seismic moment and moment
+rate functions) that can be used by the `pyrocko.gf.seismosizer.Engine` module
+to calculate synthetic seismograms.
+"""
+
 import numpy as np
 
 from pyrocko.gf import STF
-from pyrocko.guts import Float
+from pyrocko.guts import Float, StringChoice
 
 
 class BaseSTF(STF):
@@ -47,15 +53,25 @@ class SmoothRampSTF(BaseSTF):
     """
     Smoothly increasing ramp (from zero to maximum amplitude)
     source-time function for near-field displacement.
-    This is based on analytical seismic moment function, M(t), proposed
-    by Bruestle & Mueller (1983).
+    STF model is based on analytical seismic moment function, M(t),
+    according to either Bruestle & Mueller (1983) or Ohtsu (1995).
 
-    Notes
-    -----
+    References
+    ----------
     .. [1] Bruestle, W., and G. Mueller. "Moment and duration of shallow
        earthquakes from Love-wave modelling for regional distances."
        Physics of the Earth and Planetary Interiors 32.4 (1983): 312-324.
+
+    .. [2] Ohtsu, M. "Acoustic emission theory for moment tensor analysis."
+       Research in Nondestructive Evaluation 6.3 (1995): 169-184.
     """
+
+    model = StringChoice.T(
+        choices=['BrMu83', 'Ohtsu95'],
+        default='BrMu83',
+        help="Source-time function model. Choices are {'BrMu83', 'Ohtsu95'}"
+             "For more details on analytical relations, see "
+             "Bruestle & Mueller (1983), and Ohtsu (1995).")
 
     def discretize_t(self, deltat, tref):
         tmin_stf, tmax_stf = self.tminmax_stf(tref)
@@ -67,7 +83,14 @@ class SmoothRampSTF(BaseSTF):
             t_dummy = np.linspace(tmin-0.5*deltat, tmax+0.5*deltat, nt)
             t_edges = np.maximum(tmin_stf, np.minimum(tmax_stf, t_dummy))
             omega_t = (t_edges-tmin_stf) * np.pi / self.duration
-            amplitudes = 1.0 - np.cos(omega_t) + (np.cos(3*omega_t)-1.0)/9.0
+
+            if self.model == 'BrMu83':
+                # ## Bruestle & Mueller (1983) model
+                amplitudes = 1. - np.cos(omega_t) + (np.cos(3.*omega_t)-1.)/9.
+            elif self.model == 'Ohtsu95':
+                # ## Ohtsu (1995) model
+                amplitudes = (self.duration/(32.*np.pi)) * (
+                    12.*omega_t - 8.*np.sin(2.*omega_t) + np.sin(4.*omega_t))
 
             # Normalized M(t) -> its maximum amplitude == deltat
             # (in `pyrocko.gf.seismoseizer`, the convolution output in
@@ -83,15 +106,25 @@ class GaussianSTF(BaseSTF):
     """
     Gaussian-shaped type source-time function for far-field displacement
     or near-field velocity.
-    This is based on analytical moment-rate function, dM(t)/dt, proposed
-    by Bruestle & Mueller (1983).
+    STF model is based on analytical moment-rate function, dM(t)/dt,
+    according to either Bruestle & Mueller (1983) or Ohtsu (1995).
 
-    Notes
-    -----
+    References
+    ----------
     .. [1] Bruestle, W., and G. Mueller. "Moment and duration of shallow
        earthquakes from Love-wave modelling for regional distances."
        Physics of the Earth and Planetary Interiors 32.4 (1983): 312-324.
+
+    .. [2] Ohtsu, M. "Acoustic emission theory for moment tensor analysis."
+       Research in Nondestructive Evaluation 6.3 (1995): 169-184.
     """
+
+    model = StringChoice.T(
+        choices=['BrMu83', 'Ohtsu95'],
+        default='BrMu83',
+        help="Source-time function model. Choices are {'BrMu83', 'Ohtsu95'}"
+             "For more details on analytical relations, see "
+             "Bruestle & Mueller (1983), and Ohtsu (1995).")
 
     def discretize_t(self, deltat, tref):
         tmin_stf, tmax_stf = self.tminmax_stf(tref)
@@ -103,9 +136,18 @@ class GaussianSTF(BaseSTF):
             t_dummy = np.linspace(tmin-0.5*deltat, tmax+0.5*deltat, nt+1)
             t_edges = np.maximum(tmin_stf, np.minimum(tmax_stf, t_dummy))
             omega_t = (t_edges-tmin_stf) * np.pi / self.duration
-            fint = 1.0 - np.cos(omega_t) + (np.cos(3*omega_t)-1.0)/9.0
-            # Numerical differentiation
-            amplitudes = fint[1:] - fint[:-1]
+
+            if self.model == 'BrMu83':
+                # ## Bruestle & Mueller (1983) model
+                fint = 1. - np.cos(omega_t) + (np.cos(3.*omega_t)-1.)/9.
+                # Numerical differentiation
+                amplitudes = fint[1:] - fint[:-1]
+            elif self.model == 'Ohtsu95':
+                # ## Ohtsu (1995) model
+                fint = (self.duration/(32.*np.pi)) * (
+                    12.*omega_t - 8.*np.sin(2.*omega_t) + np.sin(4.*omega_t))
+                # Numerical differentiation
+                amplitudes = fint[1:] - fint[:-1]
 
             # Normalized dM(t)/dt -> its numerical integration == deltat
             # (in `pyrocko.gf.seismoseizer`, the convolution output in
@@ -121,16 +163,25 @@ class ZeroCrossingSTF(BaseSTF):
     """
     First derivative of a Gaussian-shaped source-time function for
     far-filed velocity.
+    STF model is based on the time derivative of analytical moment-rate
+    function according to either Bruestle & Mueller (1983) or Ohtsu (1995).
 
-    This is based on the time derivative of analytical moment-rate
-    function, d[dM(t)/dt]/dt, proposed by Bruestle & Mueller (1983).
-
-    Notes
-    -----
+    References
+    ----------
     .. [1] Bruestle, W., and G. Mueller. "Moment and duration of shallow
        earthquakes from Love-wave modelling for regional distances."
        Physics of the Earth and Planetary Interiors 32.4 (1983): 312-324.
+
+    .. [2] Ohtsu, M. "Acoustic emission theory for moment tensor analysis."
+       Research in Nondestructive Evaluation 6.3 (1995): 169-184.
     """
+
+    model = StringChoice.T(
+        choices=['BrMu83', 'Ohtsu95'],
+        default='BrMu83',
+        help="Source-time function model. Choices are {'BrMu83', 'Ohtsu95'}"
+             "For more details on analytical relations, see "
+             "Bruestle & Mueller (1983), and Ohtsu (1995).")
 
     def discretize_t(self, deltat, tref):
         tmin_stf, tmax_stf = self.tminmax_stf(tref)
@@ -143,7 +194,13 @@ class ZeroCrossingSTF(BaseSTF):
             t_edges = np.maximum(tmin_stf, np.minimum(tmax_stf, t_dummy))
             omega = np.pi / self.duration
             omega_t = (t_edges-tmin_stf) * omega
-            fint = (omega/3.0) * (3.0*np.sin(omega_t) - np.sin(3.0*omega_t))
+
+            if self.model == 'BrMu83':
+                # ## Bruestle & Mueller (1983) model
+                fint = (omega/3.) * (3.*np.sin(omega_t) - np.sin(3.*omega_t))
+            elif self.model == 'Ohtsu95':
+                # ## Ohtsu (1995) model
+                fint = (3. - 4.*np.cos(2.*omega_t) + np.cos(4.*omega_t)) / 8.
 
             # Normalized dM(t)/dt -> its numerical integration == deltat
             # (in `pyrocko.gf.seismoseizer`, the convolution output in

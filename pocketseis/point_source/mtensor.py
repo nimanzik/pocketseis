@@ -1,15 +1,19 @@
+"""
+Module containing functions and classes related to seismic moment tensor.
+"""
+
 import numpy as np
 
 
-class BasicRotationMatrix(object):
+class ElementalRotations3D(object):
     """
-    Basic (elemental) rotation that is rotation about one of the axes
-    of a right-handed coordinate system through a given angle.
+    Basic (elemental) rotation that is rotation about one of the axes of a
+    right-handed coordinate system through a given angle.
     """
     @classmethod
     def about_x(cls, a):
         """
-        Rotation through angle `a` about x-axis of a Cartesian
+        Elemental rotation through angle `a` about x-axis of a Cartesian
         coordinate system.
 
         Parameters
@@ -20,8 +24,8 @@ class BasicRotationMatrix(object):
         Returns
         -------
         Rx : ndarray, shape (3, 3)
-            Rotation matrix that rotates vectors by an angle of `a`
-            about x-axis.
+            Rotation matrix that rotates vectors by an angle of `a` about
+            x-axis.
         """
         ca = np.cos(a)
         sa = np.sin(a)
@@ -33,7 +37,7 @@ class BasicRotationMatrix(object):
     @classmethod
     def about_y(cls, a):
         """
-        Rotation through angle `a` about y-axis of a Cartesian
+        Elemental rotation through angle `a` about y-axis of a Cartesian
         coordinate system.
 
         Parameters
@@ -44,8 +48,8 @@ class BasicRotationMatrix(object):
         Returns
         -------
         Ry : ndarray, shape (3, 3)
-            Rotation matrix that rotates vectors by an angle of `a`
-            about y-axis.
+            Rotation matrix that rotates vectors by an angle of `a` about
+            y-axis.
         """
         ca = np.cos(a)
         sa = np.sin(a)
@@ -68,8 +72,8 @@ class BasicRotationMatrix(object):
         Returns
         -------
         Rz : ndarray, shape (3, 3)
-            Rotation matrix that rotates vectors by an angle of `a`
-            about z-axis.
+            Rotation matrix that rotates vectors by an angle of `a` about
+            z-axis.
         """
         ca = np.cos(a)
         sa = np.sin(a)
@@ -79,10 +83,7 @@ class BasicRotationMatrix(object):
             [0., 0., 1.]], dtype=np.float)
 
 
-g_basic_rotation = BasicRotationMatrix()
-
-
-class MomentTensorRotation(object):
+class MomentTensorRotation(ElementalRotations3D):
     """
     Convert moment tensor from/to commonly used coordinate system
     conventions.
@@ -92,13 +93,13 @@ class MomentTensorRotation(object):
         * north-west-up (NWU)
         * east-north-up (ENU)
 
-    All methods get plain moment tensor as symmetric 3-by-3 matrix in
-    the 1st (original) coordinate system and returns the converted
-    moment tensor defined in the 2nd (rotated) system.
+    All methods get plain moment tensor as symmetric 3-by-3 matrix in the 1st
+    (original) coordinate system and returns the converted moment tensor
+    defined in the 2nd (rotated) system.
     """
     @classmethod
     def from_ned_to_nwu(cls, m):
-        rotmat = g_basic_rotation.about_x(np.pi)
+        rotmat = super().about_x(np.pi)
         return np.linalg.multi_dot((rotmat.T, m, rotmat))
 
     @classmethod
@@ -107,20 +108,20 @@ class MomentTensorRotation(object):
 
     @classmethod
     def from_ned_to_enu(cls, m):
-        rotmat1 = g_basic_rotation.about_x(np.pi)
-        rotmat2 = g_basic_rotation.about_z(-np.pi/2.0)
+        rotmat1 = super().about_x(np.pi)
+        rotmat2 = super().about_z(-np.pi/2.0)
         rotmat = np.dot(rotmat1, rotmat2)
         return np.linalg.multi_dot((rotmat.T, m, rotmat))
 
     @classmethod
     def from_enu_to_ned(cls, m):
-        rotmat1 = g_basic_rotation.about_z(np.pi/2.0)
-        rotmat2 = g_basic_rotation.about_x(-np.pi)
+        rotmat1 = super().about_z(np.pi/2.0)
+        rotmat2 = super().about_x(-np.pi)
         rotmat = np.dot(rotmat1, rotmat2)
         return np.linalg.multi_dot((rotmat.T, m, rotmat))
 
 
 __all__ = """
-    BasicRotationMatrix
+    ElementalRotations3D
     MomentTensorRotation
 """.split()
