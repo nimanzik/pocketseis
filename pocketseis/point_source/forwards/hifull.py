@@ -11,15 +11,15 @@ from scipy.signal import fftconvolve
 from pocketseis import util as psutil
 
 
-class DynamicDispFields(object):
+class DynamicDisplacementFields(object):
     """
-    Base class for dynamic displcement fields.
+    Base class for dynamic displacement fields.
 
     Parameters
     ----------
     near, intermediate, far : ndarray
-        Displcement amplitudes for near-, intermediate-, and far-filed
-        distance ranges. Arrays (for each displcement field term) are of
+        Displacement amplitudes for near-, intermediate-, and far-filed
+        distance ranges. Arrays (for each displacement field term) are of
         shape (n_receivers, 3, data_len), where 3 is the number of receiver
         components.
 
@@ -291,7 +291,7 @@ def dynamic_disp_mt_source(
 
     # #############
 
-    return DynamicDispFields(
+    return DynamicDisplacementFields(
         near=int(want_near) and u_nf,
         intermediate=int(want_intermediate) and u_if,
         far=int(want_far) and u_ff,
@@ -757,7 +757,7 @@ def radiation_pattern_mt_source(
 
 
 __all__ = """
-    DynamicDispFields
+    DynamicDisplacementFields
     dynamic_disp_mt_source
     SphereConfigSpace
     RadiationPattern
