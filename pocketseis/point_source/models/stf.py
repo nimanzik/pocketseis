@@ -7,7 +7,7 @@ to calculate synthetic seismograms.
 import numpy as np
 
 from pyrocko.gf import STF
-from pyrocko.guts import Float, StringChoice
+from pyrocko.guts import Float, StringChoice, Int
 
 
 class BaseSTF(STF):
@@ -58,12 +58,12 @@ class SmoothRampSTF(BaseSTF):
 
     References
     ----------
-    .. [1] Bruestle, W., and G. Mueller. "Moment and duration of shallow
-       earthquakes from Love-wave modelling for regional distances."
-       Physics of the Earth and Planetary Interiors 32.4 (1983): 312-324.
+    .. [1] Br{\"u}stle, W., & M{\"u}ller, G. (1983). Moment and duration of
+       shallow earthquakes from Love-wave modelling for regional distances.
+       Physics of the Earth and Planetary Interiors, 32(4), 312-324.
 
-    .. [2] Ohtsu, M. "Acoustic emission theory for moment tensor analysis."
-       Research in Nondestructive Evaluation 6.3 (1995): 169-184.
+    .. [2] Ohtsu, M. (1995). Acoustic emission theory for moment tensor
+       analysis. Research in Nondestructive Evaluation, 6(3), 169-184.
     """
 
     model = StringChoice.T(
@@ -93,8 +93,8 @@ class SmoothRampSTF(BaseSTF):
                     12.*omega_t - 8.*np.sin(2.*omega_t) + np.sin(4.*omega_t))
 
             # Normalized M(t) -> its maximum amplitude == deltat
-            # (in `pyrocko.gf.seismoseizer`, the convolution output in
-            # post-processing step is not multiplied by deltat)
+            # (in `pyrocko.gf.seismoseizer`, the convolution output
+            # in post-processing step is not multiplied by deltat)
             amplitudes *= (deltat / np.max(amplitudes))
         else:
             amplitudes = np.ones(1)
@@ -111,12 +111,12 @@ class GaussianSTF(BaseSTF):
 
     References
     ----------
-    .. [1] Bruestle, W., and G. Mueller. "Moment and duration of shallow
-       earthquakes from Love-wave modelling for regional distances."
-       Physics of the Earth and Planetary Interiors 32.4 (1983): 312-324.
+    .. [1] Br{\"u}stle, W., & M{\"u}ller, G. (1983). Moment and duration of
+       shallow earthquakes from Love-wave modelling for regional distances.
+       Physics of the Earth and Planetary Interiors, 32(4), 312-324.
 
-    .. [2] Ohtsu, M. "Acoustic emission theory for moment tensor analysis."
-       Research in Nondestructive Evaluation 6.3 (1995): 169-184.
+    .. [2] Ohtsu, M. (1995). Acoustic emission theory for moment tensor
+       analysis. Research in Nondestructive Evaluation, 6(3), 169-184.
     """
 
     model = StringChoice.T(
@@ -168,12 +168,12 @@ class ZeroCrossingSTF(BaseSTF):
 
     References
     ----------
-    .. [1] Bruestle, W., and G. Mueller. "Moment and duration of shallow
-       earthquakes from Love-wave modelling for regional distances."
-       Physics of the Earth and Planetary Interiors 32.4 (1983): 312-324.
+    .. [1] Br{\"u}stle, W., & M{\"u}ller, G. (1983). Moment and duration of
+       shallow earthquakes from Love-wave modelling for regional distances.
+       Physics of the Earth and Planetary Interiors, 32(4), 312-324.
 
-    .. [2] Ohtsu, M. "Acoustic emission theory for moment tensor analysis."
-       Research in Nondestructive Evaluation 6.3 (1995): 169-184.
+    .. [2] Ohtsu, M. (1995). Acoustic emission theory for moment tensor
+       analysis. Research in Nondestructive Evaluation, 6(3), 169-184.
     """
 
     model = StringChoice.T(
@@ -215,8 +215,92 @@ class ZeroCrossingSTF(BaseSTF):
         return times, amplitudes
 
 
+class StepResponseSTF(BaseSTF):
+    """
+    Unit-step response solution of a critically damped 2nd order mechanical
+    system (with static friction and a dynamic friction proportional to slip
+    velocity) for near-field displacement source-time function (dislocation
+    history).
+
+    References
+    ----------
+    .. [1] Harkrider, D. G. (1976). Potentials and displacements for two
+       theoretical seismic sources. Geophysical Journal International,
+       47(1), 97-133.
+    """
+    damping_factor = Int.T(
+        help="Parameter with the dimension of inverse time, which controls "
+             "the width (or frequency content) and amplitude of the "
+             "source-time function. It a positive integer. The larger this "
+             "parameter the narrower the pulse.")
+
+    def discretize_t(self, deltat, tref):
+        tmin_stf, tmax_stf = self.tminmax_stf(tref)
+        tmin = round(tmin_stf/deltat) * deltat
+        tmax = round(tmax_stf/deltat) * deltat
+        nt = int(round((tmax-tmin)/deltat)) + 1
+        times = np.linspace(tmin, tmax, nt)
+        if nt > 1:
+            t_dummy = np.linspace(tmin-0.5*deltat, tmax+0.5*deltat, nt)
+            t_edges = np.maximum(tmin_stf, np.minimum(tmax_stf, t_dummy))
+            omega_t = (t_edges - tmin_stf) * self.damping_factor
+            amplitudes = 1. - (1. + omega_t) * np.exp(-1.*omega_t)
+
+            # Normalized M(t) -> its maximum amplitude == deltat
+            # (in `pyrocko.gf.seismoseizer`, the convolution output in
+            # post-processing step is not multiplied by deltat)
+            amplitudes *= (deltat / np.max(amplitudes))
+        else:
+            amplitudes = np.ones(1)
+
+        return times, amplitudes
+
+
+class ImpulseResponseSTF(BaseSTF):
+    """
+    Impulse-response solution of a critically damped 2nd order mechanical
+    system (with static friction and a dynamic friction proportional to slip
+    velocity) for far-field displacement source-time function (
+    dislocation-rate history).
+
+    References
+    ----------
+    .. [1] Harkrider, D. G. (1976). Potentials and displacements for two
+       theoretical seismic sources. Geophysical Journal International,
+       47(1), 97-133.
+    """
+    damping_factor = Int.T(
+        help="Parameter with the dimension of inverse time, which controls "
+             "the width (or frequency content) and amplitude of the "
+             "source-time function. It a positive integer. The larger this "
+             "parameter the narrower the pulse.")
+
+    def discretize_t(self, deltat, tref):
+        tmin_stf, tmax_stf = self.tminmax_stf(tref)
+        tmin = round(tmin_stf/deltat) * deltat
+        tmax = round(tmax_stf/deltat) * deltat
+        nt = int(round((tmax-tmin)/deltat)) + 1
+        times = np.linspace(tmin, tmax, nt)
+        if nt > 1:
+            t_dummy = np.linspace(tmin-0.5*deltat, tmax+0.5*deltat, nt)
+            t_edges = np.maximum(tmin_stf, np.minimum(tmax_stf, t_dummy))
+            omega_t = (t_edges - tmin_stf) * self.damping_factor
+            amplitudes = self.damping_factor * omega_t * np.exp(-1.*omega_t)
+
+            # Normalized dM(t)/dt -> its numerical integration == deltat
+            # (in `pyrocko.gf.seismoseizer`, the convolution output in
+            # post-processing step is not multiplied by deltat)
+            amplitudes /= np.sum(amplitudes)
+        else:
+            amplitudes = np.ones(1)
+
+        return times, amplitudes
+
+
 __all__ = """
     SmoothRampSTF
     GaussianSTF
     ZeroCrossingSTF
+    StepResponseSTF
+    ImpulseResponseSTF
 """.split()

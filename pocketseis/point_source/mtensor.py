@@ -8,7 +8,7 @@ import numpy as np
 class ElementalRotations3D(object):
     """
     Basic (elemental) rotation that is rotation about one of the axes of a
-    right-handed coordinate system through a given angle.
+    right-handed Cartesian coordinate system through a given angle.
     """
     @classmethod
     def about_x(cls, a):
