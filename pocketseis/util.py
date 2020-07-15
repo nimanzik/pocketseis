@@ -55,28 +55,5 @@ def make_time_array(tmin, tmax, deltat):
     return np.linspace(start, stop, num, axis=-1)
 
 
-def tuple6_to_symmat(a):
-    """
-    Create symmetric 3-by-3 moment-tensor matrix from its 6
-    independent values.
-
-    Parameters
-    ----------
-    a : tuple of 6 float
-        A tuple of six independent components of moment tensor in
-        (M11, M22, M33, M12, M13, M23) order.
-
-    Returns
-    -------
-    m : ndarray, shape (3, 3)
-        Plain seismic moment tensor as symmetric 2-D array.
-    """
-    a11, a22, a33, a12, a13, a23 = a
-    return np.array([
-        [a11, a12, a13],
-        [a12, a22, a23],
-        [a13, a23, a33]], dtype=np.float)
-
-
 def get_data_file(filename):
     return op.join(op.split(__file__)[0], 'data', filename)

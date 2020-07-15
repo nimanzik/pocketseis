@@ -1,16 +1,31 @@
 """
-Module containing customized source-time functions (seismic moment and moment
-rate functions) that can be used by the `pyrocko.gf.seismosizer.Engine` module
-to calculate synthetic seismograms.
+Module containing customized seismic sources, source-time functions
+(seismic moment and moment-rate functions) that can be used by the
+:py:class:`pyrocko.gf.seismosizer.Engine` module to calculate synthetic
+seismograms.
 """
 
 import numpy as np
+from scipy.interpolate import interp1d
 
-from pyrocko.gf import STF
+from pyrocko import gf, moment_tensor as pmt
 from pyrocko.guts import Float, StringChoice, Int
 
+from pocketseis import rotation
+from pocketseis.point_source.mtensor import denormalize_mt
 
-class BaseSTF(STF):
+
+# ----------------------------------------
+# MTQTSource:: map ``beta`` parameter to ``u`` variable
+# using eq. 24a,Tape & Tape (2015)
+
+_beta = np.linspace(0., np.pi, 5000)
+_u = 0.75*_beta - 0.5*np.sin(2.*_beta) + 0.0625*np.sin(4.*_beta)
+f_interp = interp1d(_u, _beta)
+# ----------------------------------------
+
+
+class BaseSTF(gf.STF):
     """
     Base class for STFs.
 
@@ -297,10 +312,329 @@ class ImpulseResponseSTF(BaseSTF):
         return times, amplitudes
 
 
+class MTQTSource(gf.SourceWithMagnitude):
+    """
+    Class for moment-tensor point source following Q-T domain
+    parametrization constructed by Tape & Tape [2015] (hereafter TT15).
+    """
+
+    u = Float.T(
+        default=0.0,
+        help='Lunar co-latitude transformed to Q domain.'
+             'Interval of definition: [0, 3pi/4]')
+
+    v = Float.T(
+        default=0.0,
+        help='Lunar longitude transformed to Q domain.'
+             'Interval of definition: [-1/3, 1/3]')
+
+    kappa = Float.T(
+        default=0.0,
+        help='Strike angle in T domain.'
+             'Interval of definition: [0, 2pi]')
+
+    sigma = Float.T(
+        default=0.0,
+        help='Slip angle in T domain.'
+             'Interval of definition: [-pi/2, pi/2]')
+
+    h = Float.T(
+        default=0.0,
+        help='Cosine of dip angle in T domain.'
+             'Interval of definition: [0, 1]')
+
+    discretized_source_class = gf.DiscretizedMTSource
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._beta = None
+        self._gamma = None
+        self._delta = None
+        self._theta = None
+        self._lune_lambda_triple = None
+        self._lune_lambda_matrix = None
+        self._rotmat_kappa = None
+        self._rotmat_theta = None
+        self._rotmat_sigma = None
+        self._rotmat_V = None
+        self._rotmat_U = None
+        self._m9_nwu = None
+        self._m6_nwu = None
+        self._m6_nwu_astuple = None
+        self._m9_ned = None
+        self._m6_ned = None
+        self._m6_ned_astuple = None
+
+        # TODO
+        # if 'm6' in kwargs or 'm6_ned' in kwargs:
+        #     pass
+
+    @property
+    def beta(self):
+        """
+        Lunar co-latitude as a function of :py:attr:`.u` (TT15, eq. 24a)
+        """
+        if self._beta is None:
+            self._beta = f_interp(self.u)
+        return self._beta
+
+    @property
+    def gamma(self):
+        """
+        Lunar longitude as a function of :py:attr:`.v` (TT15, eq. 24b)
+        """
+        if self._gamma is None:
+            self._gamma = (1./3.) * np.arcsin(3.*self.v)
+        return self._gamma
+
+    @property
+    def delta(self):
+        """
+        The coordinate $\\delta$ explicitly measures the departure from
+        being deviatoric, and it puts the closest double couple at
+        $\\gamma = \\delta = 0$.
+        """
+        if self._delta is None:
+            self._delta = np.pi/2. - self.beta
+        return self._delta
+
+    @property
+    def theta(self):
+        """
+        Dip angle as a function of :py:attr:`.h` (TT15, eq. 24c)
+        """
+        if self._theta is None:
+            self._theta = np.arccos(self.h)
+        return self._theta
+
+    @property
+    def lune_lambda_triple(self):
+        """
+        Lune eigenvalue triples (TT15, eq. 7)
+        """
+        if self._lune_lambda_triple is None:
+            sqrt2 = np.sqrt(2.)
+            sqrt3 = np.sqrt(3.)
+            sqrt6 = sqrt2 * sqrt3
+            a = (1./sqrt6) * np.array([[sqrt3, -1.0, sqrt2],
+                                       [0.0, 2.0, sqrt2],
+                                       [-sqrt3, -1.0, sqrt2]], dtype=np.float)
+
+            b = np.array([np.sin(self.beta)*np.cos(self.gamma),
+                          np.sin(self.beta)*np.sin(self.gamma),
+                          np.cos(self.beta)])
+
+            self._lune_lambda_triple = np.matmul(a, b)
+
+        return self._lune_lambda_triple
+
+    @property
+    def lune_lambda_matrix(self):
+        """
+        Diagonalized moment tensor (TT15, eq. 4a).
+        This matrix describes a beachball moment tensor with eigenvalues
+        $\\lambda_1, \\lambda_2, \\lambda_3$ and with corresponding
+        eigenvectors in the x, y, z corrdinate direction.
+        """
+        if self._lune_lambda_matrix is None:
+            self._lune_lambda_matrix = np.diag(self.lune_lambda_triple)
+        return self._lune_lambda_matrix
+
+    @property
+    def rotmat_kappa(self):
+        """
+        Rotation through angle :py:attr:`.kappa` about the z-axis
+        (TT15, eq. 9)
+        """
+        if self._rotmat_kappa is None:
+            self._rotmat_kappa = rotation.rotmat_about_z(-self.kappa)
+        return self._rotmat_kappa
+
+    @property
+    def rotmat_theta(self):
+        """
+        Rotation through angle :py:meth:`.theta` about the x-axis
+        (TT15, eq. 9)
+        """
+        if self._rotmat_theta is None:
+            self._rotmat_theta = rotation.rotmat_about_x(self.theta)
+        return self._rotmat_theta
+
+    @property
+    def rotmat_sigma(self):
+        """
+        Rotation through angle :py:attr:`.sigma` about the z-axis
+        (TT15, eq. 9)
+        """
+        if self._rotmat_sigma is None:
+            self._rotmat_sigma = rotation.rotmat_about_z(self.sigma)
+        return self._rotmat_sigma
+
+    @property
+    def rotmat_V(self):
+        """
+        Rotation matrix ``V`` defined in TT15, eq. 9.
+        """
+        if self._rotmat_V is None:
+            self._rotmat_V = np.linalg.multi_dot([self.rotmat_kappa,
+                                                  self.rotmat_theta,
+                                                  self.rotmat_sigma])
+        return self._rotmat_V
+
+    @property
+    def rotmat_U(self):
+        """
+        Rotation matrix ``U`` defined in TT15, eq. 10.
+        """
+        if self._rotmat_U is None:
+            self._rotmat_U = np.matmul(self.rotmat_V,
+                                       rotation.rotmat_about_y(-np.pi/4.0))
+        return self._rotmat_U
+
+    @property
+    def m9_nwu(self):
+        """
+        Moment tensor of *unit norm* in north-west-up (north-west-zenith)
+        basis convention (the x-y-z Cartesian coordinate system used in
+        TT15).
+        This matrix describes the same beachball as
+        :py:meth:`.lune_lambda_matrix` after being rotated (transformed) by
+        the rotation matrix :py:meth:`.self.rotmat_U`.
+        """
+        if self._m9_nwu is None:
+            self._m9_nwu = np.linalg.multi_dot([self.rotmat_U,
+                                                self.lune_lambda_matrix,
+                                                np.linalg.inv(self.rotmat_U)])
+        return self._m9_nwu
+
+    @property
+    def m6_nwu(self):
+        """
+        Non-redundant components from symmetric 3-by-3 moment tensor of
+        *unit norm* that is constructed in north-west-up basis.
+
+        Returns
+        -------
+        1-D NumPy array with entries ordered as (Mnn, Mww, Muu, Mnw,
+        Mnu, Mwu).
+        """
+        if self._m6_nwu is None:
+            self._m6_nwu = pmt.to6(self.m9_nwu)
+        return self._m6_nwu
+
+    @property
+    def m6_nwu_astuple(self):
+        """
+        Same as :py:meth:`.m6_nwu` but returned as a tuple.
+        """
+        if self._m6_nwu_astuple is None:
+            self._m6_nwu_astuple = tuple(self.m6_nwu.tolist())
+        return self._m6_nwu_astuple
+
+    @property
+    def m9_ned(self):
+        """
+        Moment tensor of *unit norm* in north-east-down (north-east-nadir)
+        basis convention (the x-y-z Cartesian coordinate system convention
+        used by Aki & Richards (2002) and in Pyrocko to construct a moment
+        tensor).
+        """
+        if self._m9_ned is None:
+            self._m9_ned = rotation.rotate_mt_nwu2ned(self.m9_nwu)
+        return self._m9_ned
+
+    @property
+    def m6_ned(self):
+        """
+        Non-redundant components from symmetric 3-by-3 moment tensor of
+        *unit norm* that is constructed in north-east-down basis.
+
+        Returns
+        -------
+        1-D NumpY array with entries ordered as (Mnn, Mee, Mdd, Mne,
+        Mnd, Med).
+        """
+        if self._m6_ned is None:
+            self._m6_ned = pmt.to6(self.m9_ned)
+        return self._m6_ned
+
+    @property
+    def m6_ned_astuple(self):
+        """
+        Same as :py:meth:`.m6_ned` but returned as a tuple.
+        """
+        if self._m6_ned_astuple is None:
+            self._m6_ned_astuple = tuple(self.m6_ned.tolist())
+        return self._m6_ned_astuple
+
+    @property
+    def m9(self):
+        """
+        An alias to :py:meth:`.m9_ned`
+        """
+        return self.m9_ned
+
+    @property
+    def m6(self):
+        """
+        An alias to :py:meth:`.m6_ned`
+        """
+        return self.m6_ned
+
+    @property
+    def m6_astuple(self):
+        """
+        An alias to :py:meth:`.m6_ned_astuple`
+        """
+        return self.m6_ned_astuple
+
+    def pyrocko_moment_tensor(self):
+        # From unit-norm to norm-preserving moment tensor (NED convention)
+        m9_denorm = denormalize_mt(self.m9_ned, self.magnitude)
+        return pmt.MomentTensor(m=m9_denorm)
+
+    def pyrocko_event(self, **kwargs):
+        mot = self.pyrocko_moment_tensor()
+        return super().pyrocko_event(moment_tensor=mot,
+                                     magnitude=self.magnitude,
+                                     **kwargs)
+
+    def base_key(self):
+        mot = self.pyrocko_moment_tensor()
+        return super().base_key() + tuple(mot.m6().tolist())
+
+    def discretize_basesource(self, store, target=None):
+        times, amplitudes = self.effective_stf_pre().discretize_t(
+            store.config.deltat, self.time)
+
+        # m6s is an ndarray of shape (n_samples, 6)
+        mot = self.pyrocko_moment_tensor()
+        m6s = mot.m6()[np.newaxis, :] * amplitudes[:, np.newaxis]
+
+        return gf.DiscretizedMTSource(m6s=m6s,
+                                      **self._dparams_base_repeated(times))
+
+    # TODO
+    # @classmethod
+    # def from_pyrocko_event(cls, event, **kwargs):
+    #     d = dict()
+    #     mot = event.moment_tensor
+    #     if mot:
+    #         d.update(
+    #             magnitude=float(mot.magnitude),
+    #             _m6_ned=tuple(map(float, mot.m6()/mot.moment/np.sqrt(2.0))))
+    #     d.update(kwargs)
+    #     # In order for the following to work, the
+    #     # ``from_pyrocko_event`` method in base class
+    #     # ``SourceWithMagnitude`` has to be a class method!
+    #     return super(MTQTSource, cls).from_pyrocko_event(event, **d)
+
+
 __all__ = """
     SmoothRampSTF
     GaussianSTF
     ZeroCrossingSTF
     StepResponseSTF
     ImpulseResponseSTF
+    MTQTSource
 """.split()

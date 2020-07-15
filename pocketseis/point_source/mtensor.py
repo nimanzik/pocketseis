@@ -1,127 +1,153 @@
 """
-Module containing functions and classes related to seismic moment tensor.
+Utility functions for seismic moment tensor.
 """
 
 import numpy as np
 
 
-class ElementalRotations3D(object):
+def tuple6_to_symmat(a):
     """
-    Basic (elemental) rotation that is rotation about one of the axes of a
-    right-handed Cartesian coordinate system through a given angle.
+    Create symmetric 3-by-3 moment-tensor matrix from its 6
+    independent values.
+
+    Parameters
+    ----------
+    a : tuple of 6 float
+        A tuple of six independent components of moment tensor in
+        (M11, M22, M33, M12, M13, M23) order.
+
+    Returns
+    -------
+    m : ndarray, shape (3, 3)
+        Plain seismic moment tensor as symmetric 2-D array.
     """
-    @classmethod
-    def about_x(cls, a):
-        """
-        Elemental rotation through angle `a` about x-axis of a Cartesian
-        coordinate system.
+    a11, a22, a33, a12, a13, a23 = a
 
-        Parameters
-        ----------
-        a : float
-            Angle of rotation in [rad].
-
-        Returns
-        -------
-        Rx : ndarray, shape (3, 3)
-            Rotation matrix that rotates vectors by an angle of `a` about
-            x-axis.
-        """
-        ca = np.cos(a)
-        sa = np.sin(a)
-        return np.array([
-            [1., 0., 0.],
-            [0., ca, -sa],
-            [0., sa, ca]], dtype=np.float)
-
-    @classmethod
-    def about_y(cls, a):
-        """
-        Elemental rotation through angle `a` about y-axis of a Cartesian
-        coordinate system.
-
-        Parameters
-        ----------
-        a : float
-            Angle of rotation in [rad].
-
-        Returns
-        -------
-        Ry : ndarray, shape (3, 3)
-            Rotation matrix that rotates vectors by an angle of `a` about
-            y-axis.
-        """
-        ca = np.cos(a)
-        sa = np.sin(a)
-        return np.array([
-            [ca, 0., sa],
-            [0., 1., 0.],
-            [-sa, 0., ca]], dtype=np.float)
-
-    @classmethod
-    def about_z(cls, a):
-        """
-        Elemental rotation through angle `a` about z-axis of Cartesian
-        coordinate system.
-
-        Parameters
-        ----------
-        a : float
-            Angle of rotation in [rad].
-
-        Returns
-        -------
-        Rz : ndarray, shape (3, 3)
-            Rotation matrix that rotates vectors by an angle of `a` about
-            z-axis.
-        """
-        ca = np.cos(a)
-        sa = np.sin(a)
-        return np.array([
-            [ca, -sa, 0.],
-            [sa, ca, 0.],
-            [0., 0., 1.]], dtype=np.float)
+    return np.array([[a11, a12, a13],
+                     [a12, a22, a23],
+                     [a13, a23, a33]], dtype=np.float)
 
 
-class MomentTensorRotation(ElementalRotations3D):
+def symmat_to_tuple6(m):
     """
-    Convert moment tensor from/to commonly used coordinate system
-    conventions.
+    Get non-redundant components of symmetric 3-by-3 moment-tensor matrix.
 
-    Coordinate systems supported are:
-        * north-east-down (NED)
-        * north-west-up (NWU)
-        * east-north-up (ENU)
+    m : ndarray, shape (3, 3)
+        Plain seismic moment tensor as symmetric 2-D array.
 
-    All methods get plain moment tensor as symmetric 3-by-3 matrix in the 1st
-    (original) coordinate system and returns the converted moment tensor
-    defined in the 2nd (rotated) system.
+    Returns
+    -------
+    a : tuple of 6 float
+        A tuple of six independent components of moment tensor in
+        (M11, M22, M33, M12, M13, M23) order.
     """
-    @classmethod
-    def from_ned_to_nwu(cls, m):
-        rotmat = super().about_x(np.pi)
-        return np.linalg.multi_dot((rotmat.T, m, rotmat))
+    m = np.asarray(m, dtype=np.float)
+    a = []
+    for offset in range(3):
+        a.extend(m.diagonal(offset=offset).tolist())
 
-    @classmethod
-    def from_nwu_to_ned(cls, m):
-        return cls.from_ned_to_nwu(m)
+    return tuple(a)
 
-    @classmethod
-    def from_ned_to_enu(cls, m):
-        rotmat1 = super().about_x(np.pi)
-        rotmat2 = super().about_z(-np.pi/2.0)
-        rotmat = np.dot(rotmat1, rotmat2)
-        return np.linalg.multi_dot((rotmat.T, m, rotmat))
 
-    @classmethod
-    def from_enu_to_ned(cls, m):
-        rotmat1 = super().about_z(np.pi/2.0)
-        rotmat2 = super().about_x(-np.pi)
-        rotmat = np.dot(rotmat1, rotmat2)
-        return np.linalg.multi_dot((rotmat.T, m, rotmat))
+def moment_to_magnitude(moment):
+    """
+    Converts scalar moment, $M_0$, to moment magnitude, $M_w$ using
+    eq. 9.73, Shearer (2009)::
+
+        $M_w = \frac{2}{3} [log_10 M_0 - 9.1]$,
+
+    where, $M_0$ is scalar moment in Nm.
+
+    Parameters
+    ----------
+    moment : float
+        Scalar moment in Nm.
+
+    Returns
+    -------
+    mag : float
+        Moment magnitude.
+    """
+    return (2./3.) * (np.log10(moment) - 9.1)
+
+
+def magnitude_to_moment(mag):
+    """
+    Converts moment magnitude, $M_w$, to scalar moment, $M_0$ using
+    eq. 9.73, Shearer (2009)::
+
+        $M_w = \frac{2}{3} [log_10 M_0 - 9.1]$,
+
+    where, $M_0$ is scalar moment in Nm.
+
+    Parameters
+    ----------
+    mag : float
+        Moment magnitude.
+
+    Returns
+    -------
+    moment : float
+        Scalar moment in Nm.
+    """
+    return 10**(1.5*mag + 9.1)
+
+
+def normalize_mt(m):
+    """
+    Unit-norm moment tensor.
+    Normalizes moment tensor by its Euclidean (Frobenius) norm.
+
+    Parameters
+    ----------
+    m : ndarray, shape (3, 3)
+        Plain seismic moment tensor as symmetric 2-D array.
+
+    Returns
+    -------
+    m_norm : ndarray, shape (3, 3)
+        Normalized moment tensor.
+    """
+    m = np.asarray(m, dtype=np.float)
+    if m.ndim != 2 or m.shape != (3, 3):
+        raise ValueError("'m' must be an array of shape (3, 3)")
+
+    m_norm = m / np.linalg.norm(m, ord='fro')
+    return m_norm
+
+
+def denormalize_mt(m_norm, mag):
+    """
+    Construct norm-preserving moment tensor from a unit-norm moment tensor
+    and its magnitude using eq. 9.8, Shearer (2009).
+
+    Parameters
+    ----------
+    m_norm : ndarray, shape (3, 3)
+        Unit-norm moment tensor as plain symmetric 2-D array.
+
+    mag : float
+        Moment magnitude (Mw).
+
+    Returns
+    -------
+    m : ndarray, shape (3, 3)
+        Moment tensor denormalized, i.e. the size of the seismic event
+        applied.
+    """
+    m_norm = np.asarray(m_norm, dtype=np.float)
+    if m_norm.ndim != 2 or m_norm.shape != (3, 3):
+        raise ValueError("'m_norm' must be an array of shape (3, 3)")
+
+    moment = magnitude_to_moment(mag)
+    return np.sqrt(2.) * moment * m_norm
 
 
 __all__ = """
-    ElementalRotations3D
-    MomentTensorRotation
+    tuple6_to_symmat
+    symmat_to_tuple6
+    moment_to_magnitude
+    magnitude_to_moment
+    normalize_mt
+    denormalize_mt
 """.split()

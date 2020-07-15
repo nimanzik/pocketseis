@@ -5,6 +5,8 @@ Utility functions for matplotlib.
 import os.path as op
 
 from matplotlib.colors import LinearSegmentedColormap
+from matplotlib import ticker as mticker
+from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
 import numpy as np
 
 from ..util import get_data_file
@@ -120,6 +122,7 @@ def sci_tickformatter(scilimits=(-3, 3)):
     formatter : py:class:`matplotlib.ticker.ScalarFormatter`
         Formatter that format ticks as scientific numbers.
     """
+
     formatter = mticker.ScalarFormatter(useMathText=True)
     formatter.set_scientific(True)
     formatter.set_powerlimits(scilimits)
@@ -196,6 +199,7 @@ def create_cbar_axes(ax, position='right', size='5%', pad='3%'):
     :py:func:`matplotlib.figure.Figure.add_axes` (e.g.
     ``cax=fig.add_axes([left, bottom, width, height]``)
     """
+
     divider = make_axes_locatable(ax)
     cax = divider.append_axes(position, size, pad=pad)
     return cax
