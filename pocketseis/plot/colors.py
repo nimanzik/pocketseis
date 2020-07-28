@@ -12,7 +12,7 @@ def hex2rgb_tuple(c_hex):
     Parameters
     ----------
     c_hex : str
-        Hex color value.
+        Hex color value starting with ``#``. Example: ``'#88b7c6'``
 
     Returns
     -------
@@ -35,7 +35,7 @@ def hex2rgb_str(c_hex):
     Parameters
     ----------
     c_hex : str
-        Hex color value.
+        Hex color value starting with ``#``. Example: ``'#88b7c6'``
 
     Returns
     -------
@@ -53,14 +53,17 @@ def rgb2hex(c_rgb):
 
     Parameters
     ----------
-    c_rgb : tuple of 3 int
-        RGB color value in the range of 0-255.
+    c_rgb : tuple of 3 int or str
+        RGB color value in the range of 0-255. If given as `str`, values
+        must be separated by ``/``. Example: ``'136/183/198'``
 
     Returns
     -------
     c_hex : str
         Hex color value.
     """
+    if isinstance(c_rgb, str):
+        c_rgb = map(int, c_rgb.split('/'))
 
     return '#'+''.join(['%02x' % v for v in c_rgb])
 
@@ -99,6 +102,9 @@ def lighten_color(color, factor):
     ----------
     color : tuple of 3 int or str
         RGB color value in the range of 0-255, or HEX color code.
+        If RGB color is given as `str`, values must be separated by ``/``
+        (e.g. ``'136/183/198'``).
+        If HEX color is given, it must starts with ``#`` (e.g. ``'#88b7c6'``).
 
     factor : float
         Amount of lightness, between 0-1.
@@ -109,16 +115,25 @@ def lighten_color(color, factor):
         RGB color value in the range of 0-255, or HEX color code.
     """
     if isinstance(color, str):
-        ishex = True
-        c_rgb = hex2rgb_tuple(color)
+        isstr = True
+        if color.startswith('#'):
+            ishex = True
+            c_rgb = hex2rgb_tuple(color)
+        else:
+            ishex = False
+            c_rgb = tuple(map(int, color.split('/')))
     else:
+        isstr = False
         ishex = False
         c_rgb = color
 
     color_new = _adjust_lightness(c_rgb, 1.+factor)
 
-    if ishex:
-        return rgb2hex(color_new)
+    if isstr:
+        if ishex:
+            return rgb2hex(color_new)
+        else:
+            return '{}/{}/{}'.format(*color_new)
     return color_new
 
 
@@ -130,6 +145,9 @@ def darken_color(color, factor):
     ----------
     color : tuple of 3 int or str
         RGB color value in the range of 0-255, or HEX color code.
+        If RGB color is given as `str`, values must be separated by ``/``
+        (e.g. ``'136/183/198'``).
+        If HEX color is given, it must starts with ``#`` (e.g. ``'#88b7c6'``).
 
     factor : float
         Amount of darkness, between 0-1.
@@ -140,16 +158,25 @@ def darken_color(color, factor):
         RGB color value in the range of 0-255, HEX color code.
     """
     if isinstance(color, str):
-        ishex = True
-        c_rgb = hex2rgb_tuple(color)
+        isstr = True
+        if color.startswith('#'):
+            ishex = True
+            c_rgb = hex2rgb_tuple(color)
+        else:
+            ishex = False
+            c_rgb = tuple(map(int, color.split('/')))
     else:
+        isstr = False
         ishex = False
         c_rgb = color
 
     color_new = _adjust_lightness(c_rgb, 1.-factor)
 
-    if ishex:
-        return rgb2hex(color_new)
+    if isstr:
+        if ishex:
+            return rgb2hex(color_new)
+        else:
+            return '{}/{}/{}'.format(*color_new)
     return color_new
 
 
