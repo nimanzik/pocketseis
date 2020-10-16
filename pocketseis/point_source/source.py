@@ -12,7 +12,7 @@ from pyrocko import gf, moment_tensor as pmt
 from pyrocko.guts import Float, StringChoice, Int
 
 from pocketseis import rotation
-from pocketseis.point_source.mtensor import denormalize_mt
+from pocketseis.point_source import mtensor
 
 
 # ----------------------------------------
@@ -345,6 +345,20 @@ class MTQTSource(gf.SourceWithMagnitude):
 
     discretized_source_class = gf.DiscretizedMTSource
 
+    @classmethod
+    def generate_randomly(cls, magnitude=6., seed=None):
+        """
+        Randomly generates an MT-QT source.
+        """
+        rng = np.random.default_rng(seed=seed)
+        u = rng.uniform(low=0., high=0.75*np.pi)
+        v = rng.uniform(low=-1./3., high=1./3.)
+        kappa = rng.uniform(low=0., high=2.*np.pi)
+        sigma = rng.uniform(low=-0.5*np.pi, high=0.5*np.pi)
+        h = rng.uniform(low=0., high=1.)
+        return cls(u=u, v=v, kappa=kappa, sigma=sigma, h=h,
+                   magnitude=magnitude)
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._beta = None
@@ -375,7 +389,7 @@ class MTQTSource(gf.SourceWithMagnitude):
         Lunar co-latitude as a function of :py:attr:`.u` (TT15, eq. 24a)
         """
         if self._beta is None:
-            self._beta = f_interp(self.u)
+            self._beta = f_interp(self.u).item()
         return self._beta
 
     @property
@@ -588,28 +602,41 @@ class MTQTSource(gf.SourceWithMagnitude):
         """
         return self.m6_ned_astuple
 
+    @property
+    def moment(self):
+        return mtensor.magnitude_to_moment(self.magnitude)
+
+    @moment.setter
+    def moment(self, value):
+        self.magnitude = mtensor.moment_to_magnitude(value)
+
     def pyrocko_moment_tensor(self):
+        """
+        Returns
+        -------
+        mmt : :py:class:`pyrocko.moment_tensor.MomentTensor` object
+            *Norm-preserving* moment tensor, i.e. the size of the seismic
+            event applied.
+        """
         # From unit-norm to norm-preserving moment tensor (NED convention)
-        m9_denorm = denormalize_mt(self.m9_ned, self.magnitude)
-        return pmt.MomentTensor(m=m9_denorm)
+        m9_denorm = mtensor.denormalize_mt(self.m9_ned, self.moment)
+        return pmt.MomentTensor(m=np.asmatrix(m9_denorm))
 
     def pyrocko_event(self, **kwargs):
-        mot = self.pyrocko_moment_tensor()
-        return super().pyrocko_event(moment_tensor=mot,
-                                     magnitude=self.magnitude,
-                                     **kwargs)
+        mmt = self.pyrocko_moment_tensor()
+        return super().pyrocko_event(moment_tensor=mmt, **kwargs)
 
     def base_key(self):
-        mot = self.pyrocko_moment_tensor()
-        return super().base_key() + tuple(mot.m6().tolist())
+        mmt = self.pyrocko_moment_tensor()
+        return super().base_key() + tuple(mmt.m6().tolist())
 
     def discretize_basesource(self, store, target=None):
         times, amplitudes = self.effective_stf_pre().discretize_t(
             store.config.deltat, self.time)
 
-        # m6s is an ndarray of shape (n_samples, 6)
-        mot = self.pyrocko_moment_tensor()
-        m6s = mot.m6()[np.newaxis, :] * amplitudes[:, np.newaxis]
+        # `m6s` is an ndarray of shape (n_samples, 6)
+        mmt = self.pyrocko_moment_tensor()
+        m6s = mmt.m6()[np.newaxis, :] * amplitudes[:, np.newaxis]
 
         return gf.DiscretizedMTSource(m6s=m6s,
                                       **self._dparams_base_repeated(times))
@@ -618,11 +645,11 @@ class MTQTSource(gf.SourceWithMagnitude):
     # @classmethod
     # def from_pyrocko_event(cls, event, **kwargs):
     #     d = dict()
-    #     mot = event.moment_tensor
-    #     if mot:
+    #     mmt = event.moment_tensor
+    #     if mmt:
     #         d.update(
-    #             magnitude=float(mot.magnitude),
-    #             _m6_ned=tuple(map(float, mot.m6()/mot.moment/np.sqrt(2.0))))
+    #             magnitude=float(mmt.magnitude),
+    #             _m6_ned=tuple(map(float, mmt.m6()/mmt.moment/np.sqrt(2.0))))
     #     d.update(kwargs)
     #     # In order for the following to work, the
     #     # ``from_pyrocko_event`` method in base class

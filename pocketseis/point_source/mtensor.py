@@ -61,12 +61,12 @@ def moment_to_magnitude(moment):
     Parameters
     ----------
     moment : float
-        Scalar moment in Nm.
+        Scalar moment, $M_0$. Unit: Nm.
 
     Returns
     -------
     mag : float
-        Moment magnitude.
+        Moment magnitude (Mw).
     """
     return (2./3.) * (np.log10(moment) - 9.1)
 
@@ -83,12 +83,12 @@ def magnitude_to_moment(mag):
     Parameters
     ----------
     mag : float
-        Moment magnitude.
+        Moment magnitude, $M_w$.
 
     Returns
     -------
     moment : float
-        Scalar moment in Nm.
+        Scalar moment, , $M_0$. Unit: Nm.
     """
     return 10**(1.5*mag + 9.1)
 
@@ -116,7 +116,7 @@ def normalize_mt(m):
     return m_norm
 
 
-def denormalize_mt(m_norm, mag):
+def denormalize_mt(m_norm, moment):
     """
     Construct norm-preserving moment tensor from a unit-norm moment tensor
     and its magnitude using eq. 9.8, Shearer (2009).
@@ -126,20 +126,19 @@ def denormalize_mt(m_norm, mag):
     m_norm : ndarray, shape (3, 3)
         Unit-norm moment tensor as plain symmetric 2-D array.
 
-    mag : float
-        Moment magnitude (Mw).
+    moment : float
+        Scalar moment, $M_0$. Unit: Nm.
 
     Returns
     -------
     m : ndarray, shape (3, 3)
-        Moment tensor denormalized, i.e. the size of the seismic event
-        applied.
+        Norm-preserved moment tensor (denormalized), i.e. the size of the
+        seismic event applied.
     """
     m_norm = np.asarray(m_norm, dtype=np.float)
     if m_norm.ndim != 2 or m_norm.shape != (3, 3):
         raise ValueError("'m_norm' must be an array of shape (3, 3)")
 
-    moment = magnitude_to_moment(mag)
     return np.sqrt(2.) * moment * m_norm
 
 

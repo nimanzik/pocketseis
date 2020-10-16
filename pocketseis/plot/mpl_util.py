@@ -87,7 +87,8 @@ def transform_data2axes(ax, points_indata):
         Matplotlib ``Axes`` object to plot in.
 
     points_indata : array-like
-        Points as a list of ``n_dimensions``-tuples or ndarray of shape
+        Single point as a ``n_dimentions``-tuple (e.g. 2-tuple) or many
+        points as a list of ``n_dimensions``-tuples or ndarray of shape
         ``(n_points, n_dimensions)``, where ``n_dimensions`` is the
         number of spatial dimensions.
 

@@ -2,6 +2,7 @@
 Utility functions for PocketSeis.
 """
 
+from datetime import datetime, timedelta, timezone
 import os.path as op
 
 import numpy as np
@@ -53,6 +54,50 @@ def make_time_array(tmin, tmax, deltat):
     stop = round(tmax/deltat) * deltat
     num = int(round((stop-start) / deltat)) + 1
     return np.linspace(start, stop, num, axis=-1)
+
+
+def round_to_day(timestamp, ceiling=False):
+    """
+    Round timestamp to day (i.e. hour, minute and second are zero).
+
+    Parameters
+    ----------
+    timestamp : float
+        Desired time (UTC time zone) as floating timestamp in s.
+    ceiling : bool, default: False
+        If True, it is round to the beginning of the after `timestamp`.
+
+    Returns
+    -------
+    t : float
+        Time rounded to day (UTC time zone).
+    """
+    dt = datetime.utcfromtimestamp(timestamp)
+    dt -= timedelta(hours=dt.hour, minutes=dt.minute, seconds=dt.second,
+                    microseconds=dt.microsecond)
+    if ceiling:
+        dt += timedelta(days=1)
+
+    return datetime.timestamp(dt.replace(tzinfo=timezone.utc))
+
+
+def isleapyear(year):
+    """
+    A leap year is exactly divisible by 4 except for century years (
+    years ending with 00). A century year is a leap year if it is
+    perfectly divisible by 400.
+    """
+    year = int(year)
+    if year % 4 == 0:
+        if year % 100 == 0:
+            if year % 400 == 0:
+                return True
+            else:
+                return False
+        else:
+            return True
+    else:
+        return False
 
 
 def get_data_file(filename):

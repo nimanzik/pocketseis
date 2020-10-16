@@ -31,13 +31,12 @@ class DynamicDisplacementFields(object):
         equal length).
     """
 
-    def __init__(
-            self,
-            near=0.0,
-            intermediate=0.0,
-            far=0.0,
-            deltat=1.0,
-            data_len=1):
+    def __init__(self,
+                 near=0.0,
+                 intermediate=0.0,
+                 far=0.0,
+                 deltat=1.0,
+                 data_len=1):
 
         self.near = near
         self.intermediate = intermediate
@@ -69,9 +68,8 @@ def _column_dstack(array2d):
     return np.moveaxis(np.dstack(np.hsplit(array2d, n_col)), 2, 0)
 
 
-def dynamic_disp_sf_source(
-        vp, vs, rho, rec_vectors, force, stf_amps, deltat,
-        want_near=True, want_far=True):
+def dynamic_disp_sf_source(vp, vs, rho, rec_vectors, force, stf_amps, deltat,
+                           want_near=True, want_far=True):
     """
     Calculate the elastodynamic body-wave displacement field u(x,t) due to a
     single-force (SF) point source excitation in a homogeneous, isotropic
@@ -213,9 +211,8 @@ def dynamic_disp_sf_source(
             n_append = data_len - (n_prepend + convy.size)
             pad_widths = (n_prepend, n_append)
             constant_values = (0.0, convy[-1])
-            t_nf[i_rec] = np.pad(
-                convy, pad_widths, mode='constant',
-                constant_values=constant_values)
+            t_nf[i_rec] = np.pad(convy, pad_widths, mode='constant',
+                                 constant_values=constant_values)
 
         # Aamplitudes; shape of (n_receivers, 3, 1)
         a_nf = 3.*q1 - q2
@@ -236,17 +233,15 @@ def dynamic_disp_sf_source(
             n_prepend_p = idx_ptimes[i_rec]
             n_append_p = data_len - (n_prepend_p + stf_amps.size)
             pad_widths_p = (n_prepend_p, n_append_p)
-            t_ffp[i_rec] = np.pad(
-                stf_amps, pad_widths_p, mode='constant',
-                constant_values=constant_values_ff)
+            t_ffp[i_rec] = np.pad(stf_amps, pad_widths_p, mode='constant',
+                                  constant_values=constant_values_ff)
 
             # S-wave times
             n_prepend_s = idx_stimes[i_rec]
             n_append_s = data_len - (n_prepend_s + stf_amps.size)
             pad_widths_s = (n_prepend_s, n_append_s)
-            t_ffs[i_rec] = np.pad(
-                stf_amps, pad_widths_s, mode='constant',
-                constant_values=constant_values_ff)
+            t_ffs[i_rec] = np.pad(stf_amps, pad_widths_s, mode='constant',
+                                  constant_values=constant_values_ff)
 
         # Amplitudes; shape of (n_receivers, 3, 1)
         a_ffp = q1
@@ -259,17 +254,17 @@ def dynamic_disp_sf_source(
 
     # #############
 
-    return DynamicDisplacementFields(
-        near=int(want_near) and u_nf,
-        intermediate=0.0,
-        far=int(want_far) and u_ff,
-        deltat=deltat,
-        data_len=data_len)
+    return DynamicDisplacementFields(near=int(want_near) and u_nf,
+                                     intermediate=0.0,
+                                     far=int(want_far) and u_ff,
+                                     deltat=deltat,
+                                     data_len=data_len)
 
 
-def dynamic_disp_mt_source(
-        vp, vs, rho, rec_vectors, mt_mat, stf_amps, deltat,
-        want_near=True, want_intermediate=True, want_far=True):
+def dynamic_disp_mt_source(vp, vs, rho, rec_vectors, mt_mat, stf_amps, deltat,
+                           want_near=True,
+                           want_intermediate=True,
+                           want_far=True):
     """
     Calculate the elastodynamic body-wave displacement field u(x,t) due to a
     moment-tensor (MT) point source excitation in a homogeneous, isotropic
@@ -413,9 +408,8 @@ def dynamic_disp_mt_source(
             n_append = data_len - (n_prepend + convy.size)
             pad_widths = (n_prepend, n_append)
             constant_values = (0.0, convy[-1])
-            t_nf[i_rec] = np.pad(
-                convy, pad_widths, mode='constant',
-                constant_values=constant_values)
+            t_nf[i_rec] = np.pad(convy, pad_widths, mode='constant',
+                                 constant_values=constant_values)
 
         # Aamplitudes; shape of (n_receivers, 3, 1)
         a_nf = 3. * (5.*q1 - q2 - q3 - q4)
@@ -436,17 +430,15 @@ def dynamic_disp_mt_source(
             n_prepend_p = idx_ptimes[i_rec]
             n_append_p = data_len - (n_prepend_p + stf_amps.size)
             pad_widths_p = (n_prepend_p, n_append_p)
-            t_ifp[i_rec] = np.pad(
-                stf_amps, pad_widths_p, mode='constant',
-                constant_values=constant_values_if)
+            t_ifp[i_rec] = np.pad(stf_amps, pad_widths_p, mode='constant',
+                                  constant_values=constant_values_if)
 
             # S-wave times
             n_prepend_s = idx_stimes[i_rec]
             n_append_s = data_len - (n_prepend_s + stf_amps.size)
             pad_widths_s = (n_prepend_s, n_append_s)
-            t_ifs[i_rec] = np.pad(
-                stf_amps, pad_widths_s, mode='constant',
-                constant_values=constant_values_if)
+            t_ifs[i_rec] = np.pad(stf_amps, pad_widths_s, mode='constant',
+                                  constant_values=constant_values_if)
 
         # Amplitudes; shape of (n_receivers, 3, 1)
         a_ifp = 6.*q1 - q2 - q3 - q4
@@ -473,17 +465,15 @@ def dynamic_disp_mt_source(
             n_prepend_p = idx_ptimes[i_rec]
             n_append_p = data_len - (n_prepend_p + stf_rate.size)
             pad_widths_p = (n_prepend_p, n_append_p)
-            t_ffp[i_rec] = np.pad(
-                stf_rate, pad_widths_p, mode='constant',
-                constant_values=constant_values_ff)
+            t_ffp[i_rec] = np.pad(stf_rate, pad_widths_p, mode='constant',
+                                  constant_values=constant_values_ff)
 
             # S-wave times
             n_prepend_s = idx_stimes[i_rec]
             n_append_s = data_len - (n_prepend_s + stf_rate.size)
             pad_widths_s = (n_prepend_s, n_append_s)
-            t_ffs[i_rec] = np.pad(
-                stf_rate, pad_widths_s, mode='constant',
-                constant_values=constant_values_ff)
+            t_ffs[i_rec] = np.pad(stf_rate, pad_widths_s, mode='constant',
+                                  constant_values=constant_values_ff)
 
         # Amplitudes; shape of (n_receivers, 3, 1)
         a_ffp = q1
@@ -551,20 +541,17 @@ class SphereConfigSpace(object):
         self.vz = ct
 
         # ## Spherical unit vectors (vectorized)
-        self.gamma_uv = np.vstack([
-            np.ravel(self.vx),
-            np.ravel(self.vy),
-            np.ravel(self.vz)])
+        self.gamma_uv = np.vstack([np.ravel(self.vx),
+                                   np.ravel(self.vy),
+                                   np.ravel(self.vz)])
 
-        self.theta_uv = np.vstack([
-            np.ravel(ct*cp),
-            np.ravel(ct*sp),
-            np.ravel(-st)])
+        self.theta_uv = np.vstack([np.ravel(ct*cp),
+                                   np.ravel(ct*sp),
+                                   np.ravel(-st)])
 
-        self.phi_uv = np.vstack([
-            np.ravel(-sp),
-            np.ravel(cp),
-            np.zeros(cp.size)])
+        self.phi_uv = np.vstack([np.ravel(-sp),
+                                 np.ravel(cp),
+                                 np.zeros(cp.size)])
 
 
 class RadiationPattern(SphereConfigSpace):
@@ -603,9 +590,8 @@ class RadiationPattern(SphereConfigSpace):
         They define number of space points, shape of grid arrays etc.
     """
 
-    def __init__(
-            self, values, field_term, source_type, wave_type, direction,
-            **kwargs):
+    def __init__(self, values, field_term, source_type, wave_type, direction,
+                 **kwargs):
 
         n_theta = kwargs.get("n_theta", values.shape[0])
         n_phi = kwargs.get("n_phi", values.shape[1])
@@ -777,12 +763,11 @@ class RadiationPattern(SphereConfigSpace):
         return ax3d
 
 
-def radiation_pattern_sf_source(
-        force,
-        qsphere,
-        field_term,
-        wave_type,
-        direction):
+def radiation_pattern_sf_source(force,
+                                qsphere,
+                                field_term,
+                                wave_type,
+                                direction):
     """
     Calculate seismic radiation patterns of body waves generated by a
     single-force (SF) point source in a homogeneous, isotropic
@@ -879,22 +864,20 @@ def radiation_pattern_sf_source(
                 pass
 
     # #############
-    return RadiationPattern(
-        n_theta=qsphere.n_theta,
-        n_phi=qsphere.n_phi,
-        values=values.reshape(qsphere.sshape),
-        field_term=field_term,
-        source_type='sf',
-        wave_type=wave_type,
-        direction=direction)
+    return RadiationPattern(n_theta=qsphere.n_theta,
+                            n_phi=qsphere.n_phi,
+                            values=values.reshape(qsphere.sshape),
+                            field_term=field_term,
+                            source_type='sf',
+                            wave_type=wave_type,
+                            direction=direction)
 
 
-def radiation_pattern_mt_source(
-        mt_symmat,
-        qsphere,
-        field_term,
-        wave_type,
-        direction):
+def radiation_pattern_mt_source(mt_symmat,
+                                qsphere,
+                                field_term,
+                                wave_type,
+                                direction):
     """
     Calculate seismic radiation patterns of body waves generated by a
     general moment-tensor point source in a homogeneous, isotropic
@@ -1057,14 +1040,13 @@ def radiation_pattern_mt_source(
                 pass
 
     # #############
-    return RadiationPattern(
-        n_theta=qsphere.n_theta,
-        n_phi=qsphere.n_phi,
-        values=values.reshape(qsphere.sshape),
-        field_term=field_term,
-        source_type='mt',
-        wave_type=wave_type,
-        direction=direction)
+    return RadiationPattern(n_theta=qsphere.n_theta,
+                            n_phi=qsphere.n_phi,
+                            values=values.reshape(qsphere.sshape),
+                            field_term=field_term,
+                            source_type='mt',
+                            wave_type=wave_type,
+                            direction=direction)
 
 
 __all__ = """
