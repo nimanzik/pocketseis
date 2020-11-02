@@ -200,7 +200,7 @@ def dynamic_disp_sf_source(vp, vs, rho, rec_vectors, force, stf_amps, deltat,
         # shape of (n_receivers, 1, data_len)
         t_nf = np.zeros((n_receivers, 1, data_len), dtype=np.float)
         for i_rec in range(n_receivers):
-            tau = psutil.make_time_array(ptimes[i_rec], stimes[i_rec], deltat)
+            tau = psutil.time_range(ptimes[i_rec], stimes[i_rec], deltat)
 
             # Repeat end point to prevent boundary effects
             padded_stf = np.pad(stf_amps, (0, tau.size), mode='edge')
@@ -401,7 +401,7 @@ def dynamic_disp_mt_source(vp, vs, rho, rec_vectors, mt_mat, stf_amps, deltat,
         # shape of (n_receivers, 1, data_len)
         t_nf = np.zeros((n_receivers, 1, data_len), dtype=np.float)
         for i_rec in range(n_receivers):
-            tau = psutil.make_time_array(ptimes[i_rec], stimes[i_rec], deltat)
+            tau = psutil.time_range(ptimes[i_rec], stimes[i_rec], deltat)
 
             # Repeat end point to prevent boundary effects
             padded_stf = np.pad(stf_amps, (0, tau.size), mode='edge')

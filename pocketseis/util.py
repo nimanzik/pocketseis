@@ -34,7 +34,7 @@ def time2index(t, deltat, snap=np.round):
     return snap(t/deltat).astype(np.int)
 
 
-def make_time_array(tmin, tmax, deltat):
+def time_range(tmin, tmax, deltat):
     """
     Construct 1-D array of time values.
 
@@ -56,7 +56,7 @@ def make_time_array(tmin, tmax, deltat):
     return np.linspace(start, stop, num, axis=-1)
 
 
-def round_to_day(timestamp, ceiling=False):
+def round_day(timestamp, ceiling=False):
     """
     Round timestamp to day (i.e. hour, minute and second are zero).
 
@@ -81,11 +81,17 @@ def round_to_day(timestamp, ceiling=False):
     return datetime.timestamp(dt.replace(tzinfo=timezone.utc))
 
 
-def isleapyear(year):
+def isleap(year):
     """
-    A leap year is exactly divisible by 4 except for century years (
-    years ending with 00). A century year is a leap year if it is
-    perfectly divisible by 400.
+    Returns True if year is a leap year, otherwise False.
+
+    A leap year is exactly divisible by 4 except for century years (years
+    ending with 00). A century year is a leap year if it is perfectly
+    divisible by 400.
+
+    Notes
+    -----
+    Python standard module `calendar` already provides `isleap` method.
     """
     year = int(year)
     if year % 4 == 0:
