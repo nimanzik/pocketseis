@@ -5,7 +5,7 @@ from pyrocko.util import time_to_str
 
 from .mpl_util import transform_data2axes, sci_tickformatter
 from pocketseis.point_source.mtensor import magnitude_to_moment
-from pocketseis.util import round_to_day
+from pocketseis.util import round_day
 
 
 KM2M = 1000.
@@ -158,8 +158,8 @@ def plot_catalog_timehist(times, ax, deltat_days=1, hist_kwargs=None):
     """
     deltat = deltat_days * (24*3600)
     times = np.asarray(times)
-    bins = np.arange(round_to_day(times.min()),
-                     round_to_day(times.max(), ceiling=True)+deltat,
+    bins = np.arange(round_day(times.min()),
+                     round_day(times.max(), ceiling=True)+deltat,
                      deltat)
 
     hist_kw = dict(align='mid', fc='#ccb974', ec='dimgray')
@@ -174,7 +174,7 @@ def plot_catalog_timehist(times, ax, deltat_days=1, hist_kwargs=None):
     ax.set_ylabel('Counts [#]')
 
     # First set xlim, then set xticklabels!
-    ax.set_xticks([round_to_day(x) for x in ax.get_xticks()])
+    ax.set_xticks([round_day(x) for x in ax.get_xticks()])
     ax.set_xlim(times.min()-deltat, times.max()+deltat)
     set_xticks_as_daymonth(ax)
 

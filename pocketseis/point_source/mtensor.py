@@ -118,8 +118,9 @@ def normalize_mt(m):
 
 def denormalize_mt(m_norm, moment):
     """
-    Construct norm-preserving moment tensor from a unit-norm moment tensor
-    and its magnitude using eq. 9.8, Shearer (2009).
+    Construct norm-preserving moment tensor from a unit-norm moment
+    tensor and its total moment following Silver and Jordan (1982) and
+    using eq. 9.8, Shearer (2009).
 
     Parameters
     ----------
@@ -134,6 +135,14 @@ def denormalize_mt(m_norm, moment):
     m : ndarray, shape (3, 3)
         Norm-preserved moment tensor (denormalized), i.e. the size of the
         seismic event applied.
+
+    References
+    ----------
+    .. [1] Silver, P. G., & Jordan, T. H. (1982). Optimal estimation of
+       scalar seismic moment. Geophysical Journal International, 70(3),
+       755-787.
+    .. [2] Shearer, P. M. (2019). Introduction to seismology. Cambridge
+       university press.
     """
     m_norm = np.asarray(m_norm, dtype=np.float)
     if m_norm.ndim != 2 or m_norm.shape != (3, 3):

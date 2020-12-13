@@ -9,7 +9,7 @@ import xarray as xr
 
 from pyrocko.util import setup_logging, str_to_time
 
-from pocketseis.util import isleapyear, time2index
+from pocketseis.util import isleap, time2index
 
 
 setup_logging('read_kenv_5min')
@@ -47,7 +47,7 @@ def read_kenv_5min(zip_fname, as_xarray=True):
     station_id, year = op.basename(zip_fname).split('.')[:2]
     dph = dict(station_id=station_id, year=int(year))
 
-    n_days = 366 if isleapyear(dph['year']) else 365
+    n_days = 366 if isleap(dph['year']) else 365
 
     deltat = 300
     datalen_perday = int(86400/deltat)
