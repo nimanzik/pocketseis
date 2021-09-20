@@ -1,5 +1,3 @@
-import numpy as np
-
 from pyrocko import cake
 
 
@@ -36,7 +34,7 @@ def empirical_density(vp):
     a3 = a2 * a1
     a4 = a3 * a1
     a5 = a4 * a1
-    rho = 1.6612*a1 - 0.4721*a2 + 0.0671*a3 - 0.0043*a4 + 0.000106*a5
+    rho = 1.6612 * a1 - 0.4721 * a2 + 0.0671 * a3 - 0.0043 * a4 + 0.000106 * a5
 
     # Convert [g/cm^3] -> [kg/m^3]
     rho *= 1000.
@@ -65,7 +63,7 @@ def qp_from_infqk(qs, vp, vs):
     qp : float
         P-wave quality factor.
     """
-    return 0.75 * (vp/vs)**2 * qs
+    return 0.75 * (vp / vs)**2 * qs
 
 
 def qs_from_infqk(qp, vp, vs):
@@ -90,14 +88,14 @@ def qs_from_infqk(qp, vp, vs):
     qs : float
         S-wave quality factor.
     """
-    return qp / (0.75 * (vp/vs)**2)
+    return qp / (0.75 * (vp / vs)**2)
 
 
 def _read_minimum1d_model_fh(f, zbot=None, qp=None, qs=None):
     from_scanlines = []
     mabove = None
     for line in f:
-        z, vp, vs = map(lambda x: float(x)*KM2M, line.split())
+        z, vp, vs = map(lambda x: float(x) * KM2M, line.split())
         rho = empirical_density(vp)
 
         if qp and not qs:

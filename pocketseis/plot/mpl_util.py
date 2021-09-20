@@ -2,78 +2,9 @@
 Utility functions for matplotlib.
 """
 
-import os.path as op
-
-from matplotlib.colors import LinearSegmentedColormap
 from matplotlib import ticker as mticker
 from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
 import numpy as np
-
-from ..util import get_data_file
-
-
-def scientific_colormaps():
-    """
-    This function lists available scientific colormaps.
-
-    References
-    ----------
-    .. [1] Crameri, F. "Geodynamic diagnostics, scientific visualization,
-       and StagLab 3.0." Geodynamic Model Development 11 (2018): 2541-2562.
-    """
-    sci_cmaps = {
-        "Sequential": [
-            'devon', 'lajolla', 'bamako',
-            'davos', 'bilbao', 'nuuk',
-            'oslo', 'grayC', 'hawaii',
-            'lapaz', 'tokyo', 'buda',
-            'acton', 'turku', 'imola'],
-        "Diverging": [
-            'broc', 'cork', 'vik',
-            'lisbon', 'tofino', 'berlin'],
-        "Special": [
-            'batlow', 'roma', 'oleron'],
-        "Cyclic": [
-            'romaO', 'brocO', 'corkO', 'vikO']}
-
-    return sci_cmaps
-
-
-def get_scientific_cmap(name):
-    """
-    Get a colormap instance provided by ``'ScientificColourMaps6'``.
-
-    Parameters
-    ----------
-    name : str
-        Scientific colormap name.
-
-    Returns
-    -------
-    cmap : :py:class:`matplotlib.colors.LinearSegmentedColormap`
-        Colormap object.
-
-    Raises
-    ------
-    ValueError
-        If colormap name is not recognized.
-
-    References
-    ----------
-    .. [1] Crameri, F. "Geodynamic diagnostics, scientific visualization,
-       and StagLab 3.0." Geodynamic Model Development 11 (2018): 2541-2562.
-    """
-    file_path_name = op.join('scientific_colormaps', name+'.txt')
-    cm_file = get_data_file(file_path_name)
-
-    if not op.exists(cm_file):
-        raise ValueError(
-            "Colormap '%s' is not recognized. Run function "
-            "'plot.scientific_colormaps()' to see possible values." % name)
-
-    cm_data = np.loadtxt(cm_file)
-    cmap = LinearSegmentedColormap.from_list(name, cm_data)
-    return cmap
 
 
 def transform_data2axes(ax, points_indata):
@@ -207,8 +138,6 @@ def create_cbar_axes(ax, position='right', size='5%', pad='3%'):
 
 
 __all__ = """
-    scientific_colormaps
-    get_scientific_cmap
     transform_data2axes
     sci_tickformatter
     sci_strformatter

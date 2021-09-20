@@ -68,7 +68,7 @@ def moment_to_magnitude(moment):
     mag : float
         Moment magnitude (Mw).
     """
-    return (2./3.) * (np.log10(moment) - 9.1)
+    return (2. / 3.) * (np.log10(moment) - 9.1)
 
 
 def magnitude_to_moment(mag):
@@ -90,7 +90,7 @@ def magnitude_to_moment(mag):
     moment : float
         Scalar moment, , $M_0$. Unit: Nm.
     """
-    return 10**(1.5*mag + 9.1)
+    return 10**(1.5 * mag + 9.1)
 
 
 def normalize_mt(m):
@@ -151,6 +151,36 @@ def denormalize_mt(m_norm, moment):
     return np.sqrt(2.) * moment * m_norm
 
 
+def omega_angle_distance(m1, m2):
+    """
+    Distance among two moment tensors given by eq. 2 of
+    Cesca, Sen Dahm (GJI, 2014). In this definition, the distance `d`
+    ranges between 0 and 1.
+
+    Parameters
+    ----------
+    m1, m2 : ndarray, shape (3, 3)
+        Plain seismic moment tensors as symmetric 2-D array.
+
+    Returns
+    -------
+    d : float
+        Distance among two moment tensors `m1` and `m2`.
+    """
+    m1m2_inner = np.trace(np.dot(m1.T, m2))
+    m1_norm = np.linalg.norm(m1, ord='fro')
+    m2_norm = np.linalg.norm(m2, ord='fro')
+    d = 0.5 * (1.0 - (m1m2_inner / (m1_norm * m2_norm)))
+    return d
+
+
+def omega_angle(m1, m2):
+    m1m2_inner = np.trace(np.dot(m1.T, m2))
+    m1_norm = np.linalg.norm(m1, ord='fro')
+    m2_norm = np.linalg.norm(m2, ord='fro')
+    return np.arccos(m1m2_inner / (m1_norm * m2_norm))
+
+
 __all__ = """
     tuple6_to_symmat
     symmat_to_tuple6
@@ -158,4 +188,5 @@ __all__ = """
     magnitude_to_moment
     normalize_mt
     denormalize_mt
+    omega_angle_distance
 """.split()

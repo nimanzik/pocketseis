@@ -239,7 +239,7 @@ def rotate_mt_ned2enu(m):
     """
     m = np.asarray(m, dtype=np.float)
     rotmat1 = rotmat_about_x(np.pi)
-    rotmat2 = rotmat_about_z(-np.pi/2.)
+    rotmat2 = rotmat_about_z(-np.pi / 2.)
     rotmat = np.dot(rotmat1, rotmat2)
     return np.linalg.multi_dot((rotmat.T, m, rotmat))
 
@@ -262,7 +262,7 @@ def rotate_mt_enu2ned(m):
         coordinate frame.
     """
     m = np.asarray(m, dtype=np.float)
-    rotmat1 = rotmat_about_z(np.pi/2.)
+    rotmat1 = rotmat_about_z(np.pi / 2.)
     rotmat2 = rotmat_about_x(-np.pi)
     rotmat = np.dot(rotmat1, rotmat2)
     return np.linalg.multi_dot((rotmat.T, m, rotmat))
@@ -361,8 +361,8 @@ def rotmat_zne2lqt(bazi, incid):
     ci = np.cos(incid)
 
     rotmat_3d = np.array([[ci, si, 0.],
-                          [-si*cb, ci*cb, sb],
-                          [-si*sb, ci*sb, -cb]])
+                          [-si * cb, ci * cb, sb],
+                          [-si * sb, ci * sb, -cb]])
     if rotmat_3d.ndim == 3:
         # Reshape to (n_bazi, 3, 3) or (n_incid, 3, 3)
         rotmat_3d = np.moveaxis(rotmat_3d, 2, 0)

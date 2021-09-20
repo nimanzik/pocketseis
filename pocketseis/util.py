@@ -8,7 +8,7 @@ import os.path as op
 import numpy as np
 
 
-def time2index(t, deltat, snap=np.round):
+def time_to_index(t, deltat, snap=np.round):
     """
     Returns indedx of  a time value in array of time axis (e.g. of a
     seismic trace) assuming that starting time is zero.
@@ -31,7 +31,7 @@ def time2index(t, deltat, snap=np.round):
     idx : int or ndarray
         Indexes of the time value(s).
     """
-    return snap(t/deltat).astype(np.int)
+    return snap(t / deltat).astype(np.int)
 
 
 def time_range(tmin, tmax, deltat):
@@ -50,9 +50,9 @@ def time_range(tmin, tmax, deltat):
     times : ndarray, shape of (n_samples,)
         Array of time values.
     """
-    start = round(tmin/deltat) * deltat
-    stop = round(tmax/deltat) * deltat
-    num = int(round((stop-start) / deltat)) + 1
+    start = round(tmin / deltat) * deltat
+    stop = round(tmax / deltat) * deltat
+    num = int(round((stop - start) / deltat)) + 1
     return np.linspace(start, stop, num, axis=-1)
 
 
@@ -104,6 +104,21 @@ def isleap(year):
             return True
     else:
         return False
+
+
+def round_half_up(a, decimals=0):
+    """
+    The *rounding half up* strategy rounds every number to the nearest
+    number with the specified precision, and breaks ties by rounding up
+    (the number 1.25 is called a tie with respect to 1.2 and 1.3. In
+    cases like this, we must assign a tiebreaker).
+
+    References
+    ----------
+    .. [1] https://realpython.com/python-rounding/#rounding-half-up
+    """
+    multiplier = 10**decimals
+    return np.floor(np.asarray(a) * multiplier + 0.5) / multiplier
 
 
 def get_data_file(filename):

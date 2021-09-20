@@ -3,6 +3,76 @@ This module contains functions and classes to manipulate color codes.
 """
 
 import colorsys
+import os.path as op
+
+from matplotlib.colors import LinearSegmentedColormap
+import numpy as np
+
+from ..util import get_data_file
+
+
+def get_scientific_cmap_names():
+    """
+    This function lists available scientific colormaps.
+
+    References
+    ----------
+    .. [1] Crameri, F. "Geodynamic diagnostics, scientific visualization,
+       and StagLab 3.0." Geodynamic Model Development 11 (2018): 2541-2562.
+    """
+    sci_cmaps = {
+        "Sequential": [
+            'devon', 'lajolla', 'bamako',
+            'davos', 'bilbao', 'nuuk',
+            'oslo', 'grayC', 'hawaii',
+            'lapaz', 'tokyo', 'buda',
+            'acton', 'turku', 'imola'],
+        "Diverging": [
+            'broc', 'cork', 'vik',
+            'lisbon', 'tofino', 'berlin'],
+        "Special": [
+            'batlow', 'roma', 'oleron'],
+        "Cyclic": [
+            'romaO', 'brocO', 'corkO', 'vikO']}
+
+    return sci_cmaps
+
+
+def get_scientific_cmap(name):
+    """
+    Get a colormap instance provided by ``'ScientificColourMaps6'``.
+
+    Parameters
+    ----------
+    name : str
+        Scientific colormap name.
+
+    Returns
+    -------
+    cmap : :py:class:`matplotlib.colors.LinearSegmentedColormap`
+        Colormap object.
+
+    Raises
+    ------
+    ValueError
+        If colormap name is not recognized.
+
+    References
+    ----------
+    .. [1] Crameri, F. "Geodynamic diagnostics, scientific visualization,
+       and StagLab 3.0." Geodynamic Model Development 11 (2018): 2541-2562.
+    """
+    file_path_name = op.join('scientific_colormaps', name+'.txt')
+    cm_file = get_data_file(file_path_name)
+
+    if not op.exists(cm_file):
+        raise ValueError(
+            "Colormap '%s' is not recognized. Run function "
+            "'plot.scientific_colormaps()' to see possible values." % name)
+
+    cm_data = np.loadtxt(cm_file)
+    cmap = LinearSegmentedColormap.from_list(name, cm_data)
+    return cmap
 
 
 def hex2rgb_tuple(c_hex):
@@ -104,7 +174,7 @@ def lighten_color(color, factor):
         RGB color value in the range of 0-255, or HEX color code.
         If RGB color is given as `str`, values must be separated by ``/``
         (e.g. ``'136/183/198'``).
-        If HEX color is given, it must starts with ``#`` (e.g. ``'#88b7c6'``).
+        If HEX color is given, it must start with ``#`` (e.g. ``'#88b7c6'``).
 
     factor : float
         Amount of lightness, between 0-1.
@@ -147,7 +217,7 @@ def darken_color(color, factor):
         RGB color value in the range of 0-255, or HEX color code.
         If RGB color is given as `str`, values must be separated by ``/``
         (e.g. ``'136/183/198'``).
-        If HEX color is given, it must starts with ``#`` (e.g. ``'#88b7c6'``).
+        If HEX color is given, it must start with ``#`` (e.g. ``'#88b7c6'``).
 
     factor : float
         Amount of darkness, between 0-1.
@@ -155,7 +225,7 @@ def darken_color(color, factor):
     Returns
     -------
     color_new : tuple of 3 int or str
-        RGB color value in the range of 0-255, HEX color code.
+        RGB color value in the range of 0-255, or HEX color code.
     """
     if isinstance(color, str):
         isstr = True
@@ -181,6 +251,8 @@ def darken_color(color, factor):
 
 
 __all__ = """
+    get_scientific_cmap_names
+    get_scientific_cmap
     hex2rgb_tuple
     hex2rgb_str
     rgb2hex

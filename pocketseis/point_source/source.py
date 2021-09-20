@@ -19,8 +19,8 @@ from pocketseis.point_source import mtensor
 # MTQTSource:: map ``beta`` parameter to ``u`` variable
 # using eq. 24a,Tape & Tape (2015)
 
-_beta = np.linspace(0., np.pi, 5000)
-_u = 0.75*_beta - 0.5*np.sin(2.*_beta) + 0.0625*np.sin(4.*_beta)
+_beta = np.linspace(0.0, np.pi, 5000)
+_u = 0.75 * _beta - 0.5 * np.sin(2.0 * _beta) + 0.0625 * np.sin(4.0 * _beta)
 f_interp = interp1d(_u, _beta)
 # ----------------------------------------
 
@@ -53,8 +53,8 @@ class BaseSTF(gf.STF):
         """
         Returns time of first and last samples of the STF.
         """
-        tmin_stf = tref - self.duration*(self.anchor+1.0)*0.5
-        tmax_stf = tref + self.duration*(1.0-self.anchor)*0.5
+        tmin_stf = tref - self.duration * (self.anchor + 1.0) * 0.5
+        tmax_stf = tref + self.duration * (1.0 - self.anchor) * 0.5
         return tmin_stf, tmax_stf
 
     def base_key(self):
@@ -90,22 +90,25 @@ class SmoothRampSTF(BaseSTF):
 
     def discretize_t(self, deltat, tref):
         tmin_stf, tmax_stf = self.tminmax_stf(tref)
-        tmin = round(tmin_stf/deltat) * deltat
-        tmax = round(tmax_stf/deltat) * deltat
-        nt = int(round((tmax-tmin)/deltat)) + 1
+        tmin = round(tmin_stf / deltat) * deltat
+        tmax = round(tmax_stf / deltat) * deltat
+        nt = int(round((tmax - tmin) / deltat)) + 1
         times = np.linspace(tmin, tmax, nt)
         if nt > 1:
-            t_dummy = np.linspace(tmin-0.5*deltat, tmax+0.5*deltat, nt)
+            t_dummy = np.linspace(tmin - 0.5 * deltat, tmax + 0.5 * deltat, nt)
             t_edges = np.maximum(tmin_stf, np.minimum(tmax_stf, t_dummy))
-            omega_t = (t_edges-tmin_stf) * np.pi / self.duration
+            omega_t = (t_edges - tmin_stf) * np.pi / self.duration
 
             if self.model == 'BrMu83':
-                # ## Bruestle & Mueller (1983) model
-                amplitudes = 1. - np.cos(omega_t) + (np.cos(3.*omega_t)-1.)/9.
+                # Bruestle & Mueller (1983) model
+                amplitudes = (
+                    1. - np.cos(omega_t) + (np.cos(3. * omega_t) - 1.) / 9.)
             elif self.model == 'Ohtsu95':
-                # ## Ohtsu (1995) model
-                amplitudes = (self.duration/(32.*np.pi)) * (
-                    12.*omega_t - 8.*np.sin(2.*omega_t) + np.sin(4.*omega_t))
+                # Ohtsu (1995) model
+                amplitudes = (self.duration / (32.0 * np.pi)) * \
+                    (12.0 * omega_t
+                     - 8.0 * np.sin(2.0 * omega_t)
+                     + np.sin(4.0 * omega_t))
 
             # Normalized M(t) -> its maximum amplitude == deltat
             # (in `pyrocko.gf.seismoseizer`, the convolution output

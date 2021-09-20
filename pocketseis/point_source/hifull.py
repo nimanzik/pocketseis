@@ -123,7 +123,7 @@ def dynamic_disp_sf_source(vp, vs, rho, rec_vectors, force, stf_amps, deltat,
         want_far = True
 
     # ----------
-    # ## Relative source-receiver vectors
+    # Relative source-receiver vectors
 
     rec_vectors = np.asarray(rec_vectors, dtype=np.float)
 
@@ -137,7 +137,7 @@ def dynamic_disp_sf_source(vp, vs, rho, rec_vectors, force, stf_amps, deltat,
     n_receivers = rec_vectors.shape[1]
 
     # ----------
-    # ## Force and STF
+    # Force and STF
 
     force = np.asarray(force, dtype=np.float).flatten()
     if force.size != 3:
@@ -150,18 +150,18 @@ def dynamic_disp_sf_source(vp, vs, rho, rec_vectors, force, stf_amps, deltat,
     stf_amps = np.asarray(stf_amps, dtype=np.float).flatten()
 
     # ----------
-    # ## 3-D distances; P & S travel times -> all flattened arrays
+    # 3-D distances, P & S travel times (all flattened arrays)
 
     rec_dists = np.sqrt(np.sum(rec_vectors**2, axis=0, keepdims=False))
     ptimes = rec_dists / vp
     stimes = rec_dists / vs
 
     if any(stimes <= ptimes):
-        raise ValueError("unsupported matterial properties; "
+        raise ValueError("unsupported matterial properties: "
                          "vp={0}, vs={1}".format(vp, vs))
 
     # ----------
-    # ## Vectorised terms (derived by Nima N.)
+    # Vectorised terms (derived by Nima N.)
 
     # Unit vectors of direction cosines
     gamma_vectors = rec_vectors / rec_dists
@@ -175,28 +175,28 @@ def dynamic_disp_sf_source(vp, vs, rho, rec_vectors, force, stf_amps, deltat,
     q2 = _column_dstack(c2)
 
     # ----------
-    # ## Multiplicative inverses
+    # Multiplicative inverses
 
-    minv_4pirho = 1.0 / (4.0*np.pi*rho)
+    minv_4pirho = 1.0 / (4.0 * np.pi * rho)
     minv_vp2 = 1.0 / vp**2
     minv_vs2 = 1.0 / vs**2
 
     minv_rec_dists = 1.0 / rec_dists.reshape(-1, 1, 1)
 
     # ----------
-    # ## Phase time indexes (P, S)
+    # Phase time indexes (P, S)
     idx_ptimes = psutil.time2index(ptimes, deltat)
     idx_stimes = psutil.time2index(stimes, deltat)
 
-    # ## Number of time samples (longest waveform)
+    # Number of time samples (longest waveform)
     ts_max = stimes.max()
     data_len = psutil.time2index(ts_max, deltat) + stf_amps.size
 
     # ----------
-    # ## Near-field displacements (NF)
+    # Near-field displacements (NF)
     if want_near is True:
 
-        # Times; receiver-specific convolution with STF;
+        # Times, receiver-specific convolution with STF,
         # shape of (n_receivers, 1, data_len)
         t_nf = np.zeros((n_receivers, 1, data_len), dtype=np.float)
         for i_rec in range(n_receivers):
@@ -214,17 +214,17 @@ def dynamic_disp_sf_source(vp, vs, rho, rec_vectors, force, stf_amps, deltat,
             t_nf[i_rec] = np.pad(convy, pad_widths, mode='constant',
                                  constant_values=constant_values)
 
-        # Aamplitudes; shape of (n_receivers, 3, 1)
-        a_nf = 3.*q1 - q2
+        # Aamplitudes, shape of (n_receivers, 3, 1)
+        a_nf = 3.0 * q1 - q2
 
-        # NF displacements; shape of (n_receivers, 3, data_len)
+        # NF displacements, shape of (n_receivers, 3, data_len)
         u_nf = (minv_4pirho * minv_rec_dists**3) * a_nf * t_nf
 
     # ----------
-    # ## Far-field displacements (FF)
+    # Far-field displacements (FF)
     if want_far is True:
 
-        # Times; receiver-specific padded moment rate
+        # Times, receiver-specific padded moment rate
         t_ffp = np.zeros((n_receivers, 1, data_len), dtype=np.float)
         t_ffs = np.zeros_like(t_ffp)
         constant_values_ff = (0.0, stf_amps[-1])
@@ -244,22 +244,21 @@ def dynamic_disp_sf_source(vp, vs, rho, rec_vectors, force, stf_amps, deltat,
             t_ffs[i_rec] = np.pad(stf_amps, pad_widths_s, mode='constant',
                                   constant_values=constant_values_ff)
 
-        # Amplitudes; shape of (n_receivers, 3, 1)
+        # Amplitudes, shape of (n_receivers, 3, 1)
         a_ffp = q1
         a_ffs = q1 - q2
 
-        # FF displacements; shape of (n_receivers, 3, data_len)
+        # FF displacements, shape of (n_receivers, 3, data_len)
         u_ffp = (minv_4pirho * minv_vp2 * minv_rec_dists) * a_ffp * t_ffp
         u_ffs = -(minv_4pirho * minv_vs2 * minv_rec_dists) * a_ffs * t_ffs
         u_ff = u_ffp + u_ffs
 
-    # ----------
-    # Fertig!
-    return DynamicDisplacementFields(near=int(want_near) and u_nf,
-                                     intermediate=0.0,
-                                     far=int(want_far) and u_ff,
-                                     deltat=deltat,
-                                     data_len=data_len)
+    return DynamicDisplacementFields(
+        near=int(want_near) and u_nf,
+        intermediate=0.0,
+        far=int(want_far) and u_ff,
+        deltat=deltat,
+        data_len=data_len)
 
 # +---------------------------------------------------------------------------+
 
@@ -322,7 +321,7 @@ def dynamic_disp_mt_source(vp, vs, rho, rec_vectors, mt_mat, stf_amps, deltat,
         want_far = True
 
     # ----------
-    # ## Relative source-receiver vectors
+    # Relative source-receiver vectors
 
     rec_vectors = np.asarray(rec_vectors, dtype=np.float)
 
@@ -336,7 +335,7 @@ def dynamic_disp_mt_source(vp, vs, rho, rec_vectors, mt_mat, stf_amps, deltat,
     n_receivers = rec_vectors.shape[1]
 
     # ----------
-    # ## Moment tensor and STF
+    # Moment tensor and STF
 
     mt_mat = np.asarray(mt_mat, dtype=np.float)
     if mt_mat.shape != (3, 3):
@@ -345,18 +344,18 @@ def dynamic_disp_mt_source(vp, vs, rho, rec_vectors, mt_mat, stf_amps, deltat,
     stf_amps = np.asarray(stf_amps, dtype=np.float).flatten()
 
     # ----------
-    # ## 3-D distances; P & S travel times -> all flatttened arrays
+    # 3-D distances, P & S travel times (all flatttened arrays)
 
     rec_dists = np.sqrt(np.sum(rec_vectors**2, axis=0, keepdims=False))
     ptimes = rec_dists / vp
     stimes = rec_dists / vs
 
     if np.any(stimes <= ptimes):
-        raise ValueError("unsupported matterial properties; "
+        raise ValueError("unsupported matterial properties: "
                          "vp={0}, vs={1}".format(vp, vs))
 
     # ----------
-    # ## Vectorized terms (Pujol 2003, eqs 9.13.4-8)
+    # Vectorized terms (Pujol 2003, eqs 9.13.4-8)
 
     # Unit vectors of direction cosines
     gamma_vectors = rec_vectors / rec_dists
@@ -365,7 +364,7 @@ def dynamic_disp_mt_source(vp, vs, rho, rec_vectors, mt_mat, stf_amps, deltat,
     c4 = mt_mat @ gamma_vectors
     c3 = c4 if _issymmetric(mt_mat) else mt_mat.T @ gamma_vectors
     c2 = mt_mat.trace() * gamma_vectors
-    c1 = np.sum(gamma_vectors*c4, axis=0) * gamma_vectors
+    c1 = np.sum(gamma_vectors * c4, axis=0) * gamma_vectors
 
     # Reshape from (3, n_receivers) to (n_receivers, 3, 1)
     q4 = _column_dstack(c4)
@@ -374,9 +373,9 @@ def dynamic_disp_mt_source(vp, vs, rho, rec_vectors, mt_mat, stf_amps, deltat,
     q1 = _column_dstack(c1)
 
     # ----------
-    # ## Multiplicative inverses
+    # Multiplicative inverses
 
-    minv_4pirho = 1.0 / (4.0*np.pi*rho)
+    minv_4pirho = 1.0 / (4.0 * np.pi * rho)
     minv_vp = 1.0 / vp
     minv_vs = 1.0 / vs
 
@@ -385,19 +384,19 @@ def dynamic_disp_mt_source(vp, vs, rho, rec_vectors, mt_mat, stf_amps, deltat,
     minv_rec_dists4 = minv_rec_dists2**2
 
     # ----------
-    # ## Phase time indexes (P, S, S-P)
+    # Phase time indexes (P, S, S-P)
     idx_ptimes = psutil.time2index(ptimes, deltat)
     idx_stimes = psutil.time2index(stimes, deltat)
 
-    # ## Number of time samples (longest waveform)
+    # Number of time samples (longest waveform)
     ts_max = stimes.max()
     data_len = psutil.time2index(ts_max, deltat) + stf_amps.size
 
     # ----------
-    # ## Near-field displacements (NF)
+    # Near-field displacements (NF)
     if want_near is True:
 
-        # Times; receiver-specific convolution with STF;
+        # Times, receiver-specific convolution with STF,
         # shape of (n_receivers, 1, data_len)
         t_nf = np.zeros((n_receivers, 1, data_len), dtype=np.float)
         for i_rec in range(n_receivers):
@@ -415,17 +414,17 @@ def dynamic_disp_mt_source(vp, vs, rho, rec_vectors, mt_mat, stf_amps, deltat,
             t_nf[i_rec] = np.pad(convy, pad_widths, mode='constant',
                                  constant_values=constant_values)
 
-        # Aamplitudes; shape of (n_receivers, 3, 1)
-        a_nf = 3. * (5.*q1 - q2 - q3 - q4)
+        # Aamplitudes, shape of (n_receivers, 3, 1)
+        a_nf = 3.0 * (5.0 * q1 - q2 - q3 - q4)
 
-        # NF displacements; shape of (n_receivers, 3, data_len)
+        # NF displacements, shape of (n_receivers, 3, data_len)
         u_nf = (minv_4pirho * minv_rec_dists4) * a_nf * t_nf
 
     # ----------
-    # ## Intermediate-field displcements (IF)
+    # Intermediate-field displcements (IF)
     if want_intermediate is True:
 
-        # Times; receiver-specific padded seismic moment
+        # Times, receiver-specific padded seismic moment
         t_ifp = np.zeros((n_receivers, 1, data_len), dtype=np.float)
         t_ifs = np.zeros_like(t_ifp)
         constant_values_if = (0.0, stf_amps[-1])
@@ -445,23 +444,23 @@ def dynamic_disp_mt_source(vp, vs, rho, rec_vectors, mt_mat, stf_amps, deltat,
             t_ifs[i_rec] = np.pad(stf_amps, pad_widths_s, mode='constant',
                                   constant_values=constant_values_if)
 
-        # Amplitudes; shape of (n_receivers, 3, 1)
-        a_ifp = 6.*q1 - q2 - q3 - q4
-        a_ifs = 6.*q1 - q2 - q3 - 2.*q4
+        # Amplitudes, shape of (n_receivers, 3, 1)
+        a_ifp = 6.0 * q1 - q2 - q3 - q4
+        a_ifs = 6.0 * q1 - q2 - q3 - 2.0 * q4
 
-        # IF displacements; shape of (n_receivers, 3, data_len)
+        # IF displacements, shape of (n_receivers, 3, data_len)
         u_ifp = (minv_4pirho * minv_vp**2 * minv_rec_dists2) * a_ifp * t_ifp
         u_ifs = -(minv_4pirho * minv_vs**2 * minv_rec_dists2) * a_ifs * t_ifs
         u_if = u_ifp + u_ifs
 
     # ----------
-    # ## Far-field displacements (FF)
+    # Far-field displacements (FF)
     if want_far is True:
 
         # Moment rate
-        stf_rate = np.pad(stf_amps[2:]-stf_amps[:-2], 1) / (2.0*deltat)
+        stf_rate = np.pad(stf_amps[2:] - stf_amps[:-2], 1) / (2.0 * deltat)
 
-        # Times; receiver-specific padded moment rate
+        # Times, receiver-specific padded moment rate
         t_ffp = np.zeros((n_receivers, 1, data_len), dtype=np.float)
         t_ffs = np.zeros_like(t_ffp)
         constant_values_ff = (0.0, stf_rate[-1])
@@ -481,17 +480,15 @@ def dynamic_disp_mt_source(vp, vs, rho, rec_vectors, mt_mat, stf_amps, deltat,
             t_ffs[i_rec] = np.pad(stf_rate, pad_widths_s, mode='constant',
                                   constant_values=constant_values_ff)
 
-        # Amplitudes; shape of (n_receivers, 3, 1)
+        # Amplitudes, shape of (n_receivers, 3, 1)
         a_ffp = q1
         a_ffs = q1 - q4
 
-        # FF displacements; shape of (n_receivers, 3, data_len)
+        # FF displacements, shape of (n_receivers, 3, data_len)
         u_ffp = (minv_4pirho * minv_vp**3 * minv_rec_dists) * a_ffp * t_ffp
         u_ffs = -(minv_4pirho * minv_vs**3 * minv_rec_dists) * a_ffs * t_ffs
         u_ff = u_ffp + u_ffs
 
-    # ----------
-    # Fertig!
     return DynamicDisplacementFields(
         near=int(want_near) and u_nf,
         intermediate=int(want_intermediate) and u_if,
@@ -525,16 +522,16 @@ class SphereConfigSpace(object):
     """
 
     def __init__(self, n_theta=61, n_phi=91):
-        # ## theta: inclination angles, phi: azimuth angles
+        # theta: inclination angles, phi: azimuth angles
         self.n_theta = n_theta
         self.n_phi = n_phi
 
-        # ## 2D-grid shapes (depends on meshgrid indexing)
+        # 2D-grid shapes (depends on meshgrid indexing)
         self.__indexing = 'ij'
         self.sshape = (n_theta, n_phi)
 
         thetas = np.linspace(0, np.pi, n_theta, dtype=np.float)
-        phis = np.linspace(0., 2.*np.pi, n_phi, dtype=np.float)
+        phis = np.linspace(0., 2.0 * np.pi, n_phi, dtype=np.float)
         vthetas, vphis = np.meshgrid(thetas, phis, indexing=self.__indexing)
 
         st = np.sin(vthetas)
@@ -542,24 +539,21 @@ class SphereConfigSpace(object):
         sp = np.sin(vphis)
         cp = np.cos(vphis)
 
-        # ## Cartesian points (vectorized)
-        # Uses `inclination` angle not elevation!
+        # Cartesian points (vectorized)
+        # Uses `inclination` angle, not elevation!
         self.vx = st * cp
         self.vy = st * sp
         self.vz = ct
 
-        # ## Spherical unit vectors (vectorized)
-        self.gamma_uv = np.vstack([np.ravel(self.vx),
-                                   np.ravel(self.vy),
-                                   np.ravel(self.vz)])
+        # Spherical unit vectors (vectorized)
+        self.gamma_uv = np.vstack(
+            [np.ravel(self.vx), np.ravel(self.vy), np.ravel(self.vz)])
 
-        self.theta_uv = np.vstack([np.ravel(ct*cp),
-                                   np.ravel(ct*sp),
-                                   np.ravel(-st)])
+        self.theta_uv = np.vstack(
+            [np.ravel(ct * cp), np.ravel(ct * sp), np.ravel(-st)])
 
-        self.phi_uv = np.vstack([np.ravel(-sp),
-                                 np.ravel(cp),
-                                 np.zeros(cp.size)])
+        self.phi_uv = np.vstack(
+            [np.ravel(-sp), np.ravel(cp), np.zeros(cp.size)])
 
 # +---------------------------------------------------------------------------+
 
@@ -732,7 +726,7 @@ class RadiationPattern(SphereConfigSpace):
             return a / np.max(np.abs(a))
 
         if self.source_type == 'mt':
-            # ## Normalize values to [-1, 1] if P, or [0, 1] if S
+            # Normalize values to [-1, 1] if P, or [0, 1] if S
             if self.direction == 'radial':
                 mags = maxabs_scale(self.values)
                 mappable = self._mappable_r
@@ -746,7 +740,7 @@ class RadiationPattern(SphereConfigSpace):
             mags = maxabs_scale(np.sqrt(self.values**2))
             mappable = self._mappable_c
 
-        # ## Indivusual facecolors. 4th dimension -> rgba
+        # Indivusual facecolors. 4th dimension -> rgba
         facecolors = [mappable.to_rgba(a) for a in mags.ravel()]
         facecolors = np.array(facecolors).reshape(*self.sshape, 4)
 
@@ -754,8 +748,9 @@ class RadiationPattern(SphereConfigSpace):
         vy = mags * self.vy
         vz = mags * self.vz
         ax3d = self._setup_ax3d(ax3d)
-        ax3d.plot_surface(vx, vy, vz, facecolors=facecolors, alpha=0.9,
-                          linewidth=0, edgecolors='k', rstride=1, cstride=1)
+        ax3d.plot_surface(
+            vx, vy, vz, facecolors=facecolors, alpha=0.9, linewidth=0,
+            edgecolors='k', rstride=1, cstride=1)
 
         if draw_cartsys:
             ax3d = self._plot_cartesian_system(ax3d)
@@ -811,18 +806,18 @@ def radiation_pattern_sf_source(force, qsphere, field_term, wave_type,
     values = np.zeros(int(np.prod(qsphere.sshape)), dtype=np.float)
 
     # ----------
-    # ## (1) Near-field radiation pattern (NF)
+    # Near-field radiation pattern (NF)
     if field_term == 'near':
 
-        # ## (1.1.1) NF P-wave Radial
+        # NF P-wave Radial
         if direction == 'radial':
-            values = 2. * force.T @ qsphere.gamma_uv
+            values = 2.0 * force.T @ qsphere.gamma_uv
 
-        # ## (1.1.2) NF P-wave Polar
+        # NF P-wave Polar
         elif direction == 'polar':
             values = -force.T @ qsphere.theta_uv
 
-        # ## (1.1.3) NF P-wave Azimuthal (Pujol 2003, eq. 9.13.15c)
+        # NF P-wave Azimuthal (Pujol 2003, eq. 9.13.15c)
         elif direction == 'azimuthal':
             values = -force.T @ qsphere.phi_uv
 
@@ -830,13 +825,13 @@ def radiation_pattern_sf_source(force, qsphere, field_term, wave_type,
             values *= -1.0
 
     # ----------
-    # ## (2) Far-field radiation pattern (FF)
+    # Far-field radiation pattern (FF)
     elif field_term == 'far':
 
-        # --- (2.1) FF P-wave ---
+        # FF P-wave
         if wave_type == 'P':
 
-            # ## <2.1.1> FF P-wave Radial
+            # FF P-wave Radial
             if direction == 'radial':
                 values = force.T @ qsphere.gamma_uv
 
@@ -845,14 +840,14 @@ def radiation_pattern_sf_source(force, qsphere, field_term, wave_type,
                       "tangentional directions: '%s'" % direction)
                 pass
 
-        # --- (2.2) FF S-wave ---
+        # FF S-wave
         elif wave_type == 'S':
 
-            # ## (2.2.2) FF S-wave Polar (Pujol 2003, eq. 9.9.18b)
+            # FF S-wave Polar (Pujol 2003, eq. 9.9.18b)
             if direction == 'polar':
                 values = force.T @ qsphere.theta_uv
 
-            # ## (2.2.3) FF S-wave Azimuthal (Pujol 2003, eq. 9.9.18c)
+            # FF S-wave Azimuthal (Pujol 2003, eq. 9.9.18c)
             elif direction == 'azimuthal':
                 values = force.T @ qsphere.phi_uv
 
@@ -861,15 +856,14 @@ def radiation_pattern_sf_source(force, qsphere, field_term, wave_type,
                       "radial direction: '%s'" % direction)
                 pass
 
-    # ----------
-    # Fertig!
-    return RadiationPattern(n_theta=qsphere.n_theta,
-                            n_phi=qsphere.n_phi,
-                            values=values.reshape(qsphere.sshape),
-                            field_term=field_term,
-                            source_type='sf',
-                            wave_type=wave_type,
-                            direction=direction)
+    return RadiationPattern(
+        n_theta=qsphere.n_theta,
+        n_phi=qsphere.n_phi,
+        values=values.reshape(qsphere.sshape),
+        field_term=field_term,
+        source_type='sf',
+        wave_type=wave_type,
+        direction=direction)
 
 # +---------------------------------------------------------------------------+
 
@@ -917,129 +911,116 @@ def radiation_pattern_mt_source(mt_symmat, qsphere, field_term, wave_type,
     values = np.zeros(int(np.prod(qsphere.sshape)), dtype=np.float)
 
     # ----------
-    # ## (1) Near-field radiation pattern (NF)
+    # Near-field radiation pattern (NF)
     if field_term == 'near':
 
-        # ## (1.1.1) NF P-wave Radial (Pujol 2003, eq. 9.13.15a)
+        # NF P-wave Radial (Pujol 2003, eq. 9.13.15a)
         if direction == 'radial':
             t1 = 9.0 * np.sum(
-                qsphere.gamma_uv * (mt_symmat @ qsphere.gamma_uv),
-                axis=0)
+                qsphere.gamma_uv * (mt_symmat @ qsphere.gamma_uv), axis=0)
             t2 = -3.0 * mt_symmat.trace()
             values += (t1 + t2)
 
-        # ## (1.1.2) NF P-wave Polar (Pujol 2003, eq. 9.13.15.b)
+        # NF P-wave Polar (Pujol 2003, eq. 9.13.15.b)
         elif direction == 'polar':
             values += -6.0 * np.sum(
-                qsphere.theta_uv * (mt_symmat @ qsphere.gamma_uv),
-                axis=0)
+                qsphere.theta_uv * (mt_symmat @ qsphere.gamma_uv), axis=0)
 
-        # ## <1.1.3> NF P-wave Azimuthal (Pujol 2003, eq. 9.13.15c)
+        # NF P-wave Azimuthal (Pujol 2003, eq. 9.13.15c)
         elif direction == 'azimuthal':
             values += -6.0 * np.sum(
-                qsphere.phi_uv * (mt_symmat @ qsphere.gamma_uv),
-                axis=0)
+                qsphere.phi_uv * (mt_symmat @ qsphere.gamma_uv), axis=0)
 
         if wave_type == 'S':
             values *= -1.0
 
     # ----------
-    # ## (2) Intermediate field radiation pattern (IF)
+    # Intermediate field radiation pattern (IF)
     elif field_term == 'intermediate':
 
-        # --- (2.1) IF P-wave ---
+        # IF P-wave
         if wave_type == 'P':
 
-            # ## (2.1.1) IF P-wave Radial (Pujol 2003, eq. 9.13.16a)
+            # IF P-wave Radial (Pujol 2003, eq. 9.13.16a)
             if direction == 'radial':
                 t1 = 4.0 * np.sum(
-                    qsphere.gamma_uv * (mt_symmat @ qsphere.gamma_uv),
-                    axis=0)
+                    qsphere.gamma_uv * (mt_symmat @ qsphere.gamma_uv), axis=0)
                 t2 = -mt_symmat.trace()
                 values += (t1 + t2)
 
-            # ## (2.1.2) IF P-wave Polar (Pujol 2003, eq. 9.13.16b)
+            # IF P-wave Polar (Pujol 2003, eq. 9.13.16b)
             elif direction == 'polar':
                 values += -2.0 * np.sum(
-                    qsphere.theta_uv * (mt_symmat @ qsphere.gamma_uv),
-                    axis=0)
+                    qsphere.theta_uv * (mt_symmat @ qsphere.gamma_uv), axis=0)
 
-            # ## (2.1.3) IF P-wave Azimuthal (Pujol 2003, eq. 9.13.16c)
+            # IF P-wave Azimuthal (Pujol 2003, eq. 9.13.16c)
             elif direction == 'azimuthal':
                 values += 3.0 * np.sum(
-                    qsphere.phi_uv * (mt_symmat @ qsphere.gamma_uv),
-                    axis=0)
+                    qsphere.phi_uv * (mt_symmat @ qsphere.gamma_uv), axis=0)
 
-        # --- (2.2) IF S-wave ---
+        # IF S-wave
         elif wave_type == 'S':
 
-            # ## (2.2.1) IF S-wave Radial (Pujol 2003, eq. 9.13.17a)
+            # IF S-wave Radial (Pujol 2003, eq. 9.13.17a)
             if direction == 'radial':
                 t1 = -3.0 * np.sum(
-                    qsphere.gamma_uv * (mt_symmat @ qsphere.gamma_uv),
-                    axis=0)
+                    qsphere.gamma_uv * (mt_symmat @ qsphere.gamma_uv), axis=0)
                 t2 = mt_symmat.trace()
                 values += (t1 + t2)
 
-            # ## (2.2.2) IF S-wave Polar (Pujol 2003, eq. 9.13.17b)
+            # IF S-wave Polar (Pujol 2003, eq. 9.13.17b)
             elif direction == 'polar':
                 values += 3.0 * np.sum(
-                    qsphere.theta_uv * (mt_symmat @ qsphere.gamma_uv),
-                    axis=0)
+                    qsphere.theta_uv * (mt_symmat @ qsphere.gamma_uv), axis=0)
 
-            # ## (2.2.3) IF S-wave Azimuthal (Pujol 2003, eq. 9.13.17c)
+            # IF S-wave Azimuthal (Pujol 2003, eq. 9.13.17c)
             elif direction == 'azimuthal':
                 values += 3.0 * np.sum(
-                    qsphere.phi_uv * (mt_symmat @ qsphere.gamma_uv),
-                    axis=0)
+                    qsphere.phi_uv * (mt_symmat @ qsphere.gamma_uv), axis=0)
 
     # ----------
-    # ## (3) Far-field radiation pattern (FF)
+    # Far-field radiation pattern (FF)
     elif field_term == 'far':
 
-        # --- (3.1) FF P-wave ---
+        # FF P-wave
         if wave_type == 'P':
 
-            # ## (3.1.1) FF P-wave Radial (Pujol 2003, eq. 9.9.18a)
+            # FF P-wave Radial (Pujol 2003, eq. 9.9.18a)
             if direction == 'radial':
                 values += np.sum(
-                    qsphere.gamma_uv * (mt_symmat @ qsphere.gamma_uv),
-                    axis=0)
+                    qsphere.gamma_uv * (mt_symmat @ qsphere.gamma_uv), axis=0)
 
             else:
                 print("Far-field P-wave has zero component in "
                       "tangentional directions: '%s'" % direction)
                 pass
 
-        # --- (3.2) FF S-wave ---
+        # FF S-wave
         elif wave_type == 'S':
 
-            # ## (3.2.2) FF S-wave Polar (Pujol 2003, eq. 9.9.18b)
+            # FF S-wave Polar (Pujol 2003, eq. 9.9.18b)
             if direction == 'polar':
                 values += np.sum(
-                    qsphere.theta_uv * (mt_symmat @ qsphere.gamma_uv),
-                    axis=0)
+                    qsphere.theta_uv * (mt_symmat @ qsphere.gamma_uv), axis=0)
 
-            # ## (3.2.3) FF S-wave Azimuthal (Pujol 2003, eq. 9.9.18c)
+            # FF S-wave Azimuthal (Pujol 2003, eq. 9.9.18c)
             elif direction == 'azimuthal':
                 values += np.sum(
-                    qsphere.phi_uv * (mt_symmat @ qsphere.gamma_uv),
-                    axis=0)
+                    qsphere.phi_uv * (mt_symmat @ qsphere.gamma_uv), axis=0)
 
             else:
                 print("Far-field S-wave has zero component in "
                       "radial direction: '%s'" % direction)
                 pass
 
-    # ----------
-    # Fertig!
-    return RadiationPattern(n_theta=qsphere.n_theta,
-                            n_phi=qsphere.n_phi,
-                            values=values.reshape(qsphere.sshape),
-                            field_term=field_term,
-                            source_type='mt',
-                            wave_type=wave_type,
-                            direction=direction)
+    return RadiationPattern(
+        n_theta=qsphere.n_theta,
+        n_phi=qsphere.n_phi,
+        values=values.reshape(qsphere.sshape),
+        field_term=field_term,
+        source_type='mt',
+        wave_type=wave_type,
+        direction=direction)
 
 
 __all__ = """
