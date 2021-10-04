@@ -20,7 +20,7 @@ All methods get plain moment tensor as symmetric 3-by-3 matrix in the 1st
 (original) coordinate system and returns the converted moment tensor
 defined in the 2nd (rotated) system.
 
-**Wavefor Rotation Matrices (2-D and 3-D)**
+**Waveform Rotation Matrices (2-D and 3-D)**
 -------------------------------------------
 2-D and 3-D rotation matrices that can be used to rotate seismic waveform
 data into specified coordinate systems.

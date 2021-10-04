@@ -344,7 +344,7 @@ def dynamic_disp_mt_source(vp, vs, rho, rec_vectors, mt_mat, stf_amps, deltat,
     stf_amps = np.asarray(stf_amps, dtype=np.float).flatten()
 
     # ----------
-    # 3-D distances, P & S travel times (all flatttened arrays)
+    # 3-D distances, P & S travel times (all flattened arrays)
 
     rec_dists = np.sqrt(np.sum(rec_vectors**2, axis=0, keepdims=False))
     ptimes = rec_dists / vp
@@ -364,7 +364,7 @@ def dynamic_disp_mt_source(vp, vs, rho, rec_vectors, mt_mat, stf_amps, deltat,
     c4 = mt_mat @ gamma_vectors
     c3 = c4 if _issymmetric(mt_mat) else mt_mat.T @ gamma_vectors
     c2 = mt_mat.trace() * gamma_vectors
-    c1 = np.sum(gamma_vectors * c4, axis=0) * gamma_vectors
+    c1 = (gamma_vectors.T @ c4).item() * gamma_vectors
 
     # Reshape from (3, n_receivers) to (n_receivers, 3, 1)
     q4 = _column_dstack(c4)
