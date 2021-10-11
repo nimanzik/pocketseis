@@ -1,8 +1,8 @@
 from pyrocko import cake
 
 
-KM2M = 1000.
-M2KM = 1. / KM2M
+KM2M = 1.0e+3
+M2KM = 1.0e-3
 
 
 def empirical_density(vp):
@@ -37,7 +37,7 @@ def empirical_density(vp):
     rho = 1.6612 * a1 - 0.4721 * a2 + 0.0671 * a3 - 0.0043 * a4 + 0.000106 * a5
 
     # Convert [g/cm^3] -> [kg/m^3]
-    rho *= 1000.
+    rho *= 1000.0
     return rho
 
 

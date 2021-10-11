@@ -1,6 +1,6 @@
 """
 Utility functions for analysing catalogue data, monstly implemented from
-matlab scripts in ZMAP package.
+Matlab scripts in ZMAP package.
 """
 
 import numpy as np

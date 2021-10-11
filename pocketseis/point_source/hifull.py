@@ -125,7 +125,7 @@ def dynamic_disp_sf_source(vp, vs, rho, rec_vectors, force, stf_amps, deltat,
     # ----------
     # Relative source-receiver vectors
 
-    rec_vectors = np.asarray(rec_vectors, dtype=np.float)
+    rec_vectors = np.asarray(rec_vectors, dtype=np.float64)
 
     if rec_vectors.ndim == 1:
         rec_vectors = rec_vectors[:, np.newaxis]
@@ -139,7 +139,7 @@ def dynamic_disp_sf_source(vp, vs, rho, rec_vectors, force, stf_amps, deltat,
     # ----------
     # Force and STF
 
-    force = np.asarray(force, dtype=np.float).flatten()
+    force = np.asarray(force, dtype=np.float64).flatten()
     if force.size != 3:
         raise ValueError("'force' should be an array-like of shape (3,)")
 
@@ -147,7 +147,7 @@ def dynamic_disp_sf_source(vp, vs, rho, rec_vectors, force, stf_amps, deltat,
     force = force[:, np.newaxis]
 
     # STF as a flattened array
-    stf_amps = np.asarray(stf_amps, dtype=np.float).flatten()
+    stf_amps = np.asarray(stf_amps, dtype=np.float64).flatten()
 
     # ----------
     # 3-D distances, P & S travel times (all flattened arrays)
@@ -198,7 +198,7 @@ def dynamic_disp_sf_source(vp, vs, rho, rec_vectors, force, stf_amps, deltat,
 
         # Times, receiver-specific convolution with STF,
         # shape of (n_receivers, 1, data_len)
-        t_nf = np.zeros((n_receivers, 1, data_len), dtype=np.float)
+        t_nf = np.zeros((n_receivers, 1, data_len), dtype=np.float64)
         for i_rec in range(n_receivers):
             tau = psutil.time_range(ptimes[i_rec], stimes[i_rec], deltat)
 
@@ -225,7 +225,7 @@ def dynamic_disp_sf_source(vp, vs, rho, rec_vectors, force, stf_amps, deltat,
     if want_far is True:
 
         # Times, receiver-specific padded moment rate
-        t_ffp = np.zeros((n_receivers, 1, data_len), dtype=np.float)
+        t_ffp = np.zeros((n_receivers, 1, data_len), dtype=np.float64)
         t_ffs = np.zeros_like(t_ffp)
         constant_values_ff = (0.0, stf_amps[-1])
 
@@ -323,7 +323,7 @@ def dynamic_disp_mt_source(vp, vs, rho, rec_vectors, mt_mat, stf_amps, deltat,
     # ----------
     # Relative source-receiver vectors
 
-    rec_vectors = np.asarray(rec_vectors, dtype=np.float)
+    rec_vectors = np.asarray(rec_vectors, dtype=np.float64)
 
     if rec_vectors.ndim == 1:
         rec_vectors = rec_vectors[:, np.newaxis]
@@ -337,11 +337,11 @@ def dynamic_disp_mt_source(vp, vs, rho, rec_vectors, mt_mat, stf_amps, deltat,
     # ----------
     # Moment tensor and STF
 
-    mt_mat = np.asarray(mt_mat, dtype=np.float)
+    mt_mat = np.asarray(mt_mat, dtype=np.float64)
     if mt_mat.shape != (3, 3):
         raise ValueError("'mt_mat' shoulb be an array-like of shape (3, 3)")
 
-    stf_amps = np.asarray(stf_amps, dtype=np.float).flatten()
+    stf_amps = np.asarray(stf_amps, dtype=np.float64).flatten()
 
     # ----------
     # 3-D distances, P & S travel times (all flattened arrays)
@@ -398,7 +398,7 @@ def dynamic_disp_mt_source(vp, vs, rho, rec_vectors, mt_mat, stf_amps, deltat,
 
         # Times, receiver-specific convolution with STF,
         # shape of (n_receivers, 1, data_len)
-        t_nf = np.zeros((n_receivers, 1, data_len), dtype=np.float)
+        t_nf = np.zeros((n_receivers, 1, data_len), dtype=np.float64)
         for i_rec in range(n_receivers):
             tau = psutil.time_range(ptimes[i_rec], stimes[i_rec], deltat)
 
@@ -425,7 +425,7 @@ def dynamic_disp_mt_source(vp, vs, rho, rec_vectors, mt_mat, stf_amps, deltat,
     if want_intermediate is True:
 
         # Times, receiver-specific padded seismic moment
-        t_ifp = np.zeros((n_receivers, 1, data_len), dtype=np.float)
+        t_ifp = np.zeros((n_receivers, 1, data_len), dtype=np.float64)
         t_ifs = np.zeros_like(t_ifp)
         constant_values_if = (0.0, stf_amps[-1])
 
@@ -461,7 +461,7 @@ def dynamic_disp_mt_source(vp, vs, rho, rec_vectors, mt_mat, stf_amps, deltat,
         stf_rate = np.pad(stf_amps[2:] - stf_amps[:-2], 1) / (2.0 * deltat)
 
         # Times, receiver-specific padded moment rate
-        t_ffp = np.zeros((n_receivers, 1, data_len), dtype=np.float)
+        t_ffp = np.zeros((n_receivers, 1, data_len), dtype=np.float64)
         t_ffs = np.zeros_like(t_ffp)
         constant_values_ff = (0.0, stf_rate[-1])
 
@@ -530,8 +530,8 @@ class SphereConfigSpace(object):
         self.__indexing = 'ij'
         self.sshape = (n_theta, n_phi)
 
-        thetas = np.linspace(0, np.pi, n_theta, dtype=np.float)
-        phis = np.linspace(0., 2.0 * np.pi, n_phi, dtype=np.float)
+        thetas = np.linspace(0, np.pi, n_theta, dtype=np.float64)
+        phis = np.linspace(0., 2.0 * np.pi, n_phi, dtype=np.float64)
         vthetas, vphis = np.meshgrid(thetas, phis, indexing=self.__indexing)
 
         st = np.sin(vthetas)
@@ -803,7 +803,7 @@ def radiation_pattern_sf_source(force, qsphere, field_term, wave_type,
        seismology. Cambridge University Press.
     """
 
-    values = np.zeros(int(np.prod(qsphere.sshape)), dtype=np.float)
+    values = np.zeros(int(np.prod(qsphere.sshape)), dtype=np.float64)
 
     # ----------
     # Near-field radiation pattern (NF)
@@ -908,7 +908,7 @@ def radiation_pattern_mt_source(mt_symmat, qsphere, field_term, wave_type,
        seismology. Cambridge University Press.
     """
 
-    values = np.zeros(int(np.prod(qsphere.sshape)), dtype=np.float)
+    values = np.zeros(int(np.prod(qsphere.sshape)), dtype=np.float64)
 
     # ----------
     # Near-field radiation pattern (NF)
