@@ -20,7 +20,7 @@ All methods get plain moment tensor as symmetric 3-by-3 matrix in the 1st
 (original) coordinate system and returns the converted moment tensor
 defined in the 2nd (rotated) system.
 
-**Wavefor Rotation Matrices (2-D and 3-D)**
+**Waveform Rotation Matrices (2-D and 3-D)**
 -------------------------------------------
 2-D and 3-D rotation matrices that can be used to rotate seismic waveform
 data into specified coordinate systems.
@@ -89,103 +89,68 @@ References
 import numpy as np
 
 
-def rotmat_about_x(a):
+def rotmat_cartesian(theta, axis):
     """
-    Elemental rotation through angle `a` about x-axis of a Cartesian
-    coordinate system.
+    Elemental rotation through angle `theta` about `axis`-axis of a
+    Cartesian coordinate system.
 
     Parameters
     ----------
-    a : float or array-like
-        Angle of rotation in **radians**.
+    theta : float or array-like
+        Angle(s) of rotation in **radians**.
+    axis : {'x', 'y', 'z'}
+        One of the axis of the Cartesian coordinate system, through wich
+        the rotation is performed.
 
     Returns
     -------
-    rotmat_x : ndarray, shape (3, 3) or (n_angles, 3, 3) where n_angles >= 2
-        Rotation matrix that rotates vectors/matrices by angle of `a`
-        about x-axis.
+    rotmat : ndarray, shape (3, 3) or (n_angles, 3, 3) where n_angles >= 2
+        Rotation matrix that rotates vectors/matrices by angle(s) of
+        `theta` about the given `axis`.
     """
-    a = np.asarray(a, dtype=np.float)
-    ca = np.cos(a)
-    sa = np.sin(a)
-    rotmat_x = np.array([[1., 0., 0.],
-                         [0., ca, -sa],
-                         [0., sa, ca]])
-    if rotmat_x.ndim == 3:
+    if not (axis := axis.lower()) in (valid_axes := ['x', 'y', 'z']):
+        raise ValueError(f"Valid axis values are {valid_axes}")
+
+    theta = np.asarray(theta, dtype=np.float64)
+    cos_t = np.cos(theta)
+    sin_t = np.sin(theta)
+
+    if axis == 'x':
+        rotmat = np.array([[1.0, 0.0, 0.0],
+                           [0.0, +cos_t, -sin_t],
+                           [0.0, +sin_t, +cos_t]])
+    elif axis == 'y':
+        rotmat = np.array([[+cos_t, 0.0, +sin_t],
+                           [0.0, 1.0, 0.0],
+                           [-sin_t, 0.0, cos_t]])
+    elif axis == 'z':
+        rotmat = np.array([[+cos_t, -sin_t, 0.0],
+                           [+sin_t, +cos_t, 0.0],
+                           [0.0, 0.0, 1.0]])
+    else:
+        raise ValueError(f"Invalid axis value {axis}")
+
+    if rotmat.ndim == 3:
         # Reshape to (n_angles, 3, 3)
-        rotmat_x = np.moveaxis(rotmat_x, 2, 0)
+        rotmat = np.moveaxis(rotmat, 2, 0)
 
-    return np.squeeze(rotmat_x)
+    return np.squeeze(rotmat)
 
 
-def rotmat_about_y(a):
+def rotate_mt(m, conv_from, conv_to):
     """
-    Elemental rotation through angle `a` about y-axis of a Cartesian
-    coordinate system.
-
-    Parameters
-    ----------
-    a : float or array-like
-        Angle of rotation in **radians**.
-
-    Returns
-    -------
-    rotmat_y : ndarray, shape (3, 3) or (n_angles, 3, 3) where n_angles >= 2
-        Rotation matrix that rotates vectors/matrices by angle of `a`
-        about y-axis.
-    """
-    a = np.asarray(a, dtype=np.float)
-    ca = np.cos(a)
-    sa = np.sin(a)
-    rotmat_y = np.array([[ca, 0., sa],
-                         [0., 1., 0.],
-                         [-sa, 0., ca]])
-    if rotmat_y.ndim == 3:
-        # Reshape to (n_angles, 3, 3)
-        rotmat_y = np.moveaxis(rotmat_y, 2, 0)
-
-    return np.squeeze(rotmat_y)
-
-
-def rotmat_about_z(a):
-    """
-    Elemental rotation through angle `a` about z-axis of Cartesian
-    coordinate system.
-
-    Parameters
-    ----------
-    a : float or array-like
-        Angle of rotation in **radians**.
-
-    Returns
-    -------
-    rotmat_z : ndarray, shape (3, 3) or (n_angles, 3, 3) where n_angles >= 2
-        Rotation matrix that rotates vectors/matrices by angle of `a`
-        about z-axis.
-    """
-    a = np.asarray(a, dtype=np.float)
-    ca = np.cos(a)
-    sa = np.sin(a)
-    rotmat_z = np.array([[ca, -sa, 0.],
-                         [sa, ca, 0.],
-                         [0., 0., 1.]])
-    if rotmat_z.ndim == 3:
-        # Reshape to (n_angles, 3, 3)
-        rotmat_z = np.moveaxis(rotmat_z, 2, 0)
-
-    return np.squeeze(rotmat_z)
-
-
-def rotate_mt_ned2nwu(m):
-    """
-    Convert (i.e. rotate) seismic moment tensor from North-East-Down (ned)
-    into North-West-Up (nwu) coordinate system.
+    Convert (i.e. rotate) seismic moment tensor from one Cartesian
+    coordinate system into another.
 
     Parameters
     ----------
     m : ndarray, shape (3, 3)
         Moment tensor as symmetric 3-by-3 matrix represented in the 1st
         (original) coordinate frame.
+    conv_from : {'NED', 'NWU', 'ENU'}
+        Original coordinate system.
+    conv_to : {'NED', 'NWU', 'ENU'}
+        Primed coordinate system.
 
     Returns
     -------
@@ -193,78 +158,38 @@ def rotate_mt_ned2nwu(m):
         Converted (i.e. rotated) moment tensor defined in the 2nd (primed)
         coordinate frame.
     """
-    m = np.asarray(m, dtype=np.float)
-    rotmat = rotmat_about_x(np.pi)
-    return np.linalg.multi_dot((rotmat.T, m, rotmat))
+    m = np.asarray(m, dtype=np.float64)
+    conv_from = conv_from.upper()
+    conv_to = conv_to.upper()
+    err_msg = f"Conversion is not supported: {conv_from} -> {conv_to}"
 
+    if conv_from == 'NED':
+        if conv_to == 'NWU':
+            rotmat = rotmat_cartesian(np.pi, 'x')
+        elif conv_to == 'ENU':
+            rotmat1 = rotmat_cartesian(np.pi, 'x')
+            rotmat2 = rotmat_cartesian(-np.pi / 2.0, 'z')
+            rotmat = np.dot(rotmat1, rotmat2)
+        else:
+            raise ValueError(err_msg)
 
-def rotate_mt_nwu2ned(m):
-    """
-    Convert (i.e. rotate) seismic moment tensor from North-West-Up (nwu)
-    into North-East-Down (ned) coordinate system.
+    elif conv_from == 'NWU':
+        if conv_to == 'NED':
+            rotmat = rotmat_cartesian(-np.pi, 'x')
+        else:
+            raise ValueError(err_msg)
 
-    Parameters
-    ----------
-    m : ndarray, shape (3, 3)
-        Moment tensor as symmetric 3-by-3 matrix represented in the 1st
-        (original) coordinate frame.
+    elif conv_from == 'ENU':
+        if conv_to == 'NED':
+            rotmat1 = rotmat_cartesian(np.pi / 2.0, 'z')
+            rotmat2 = rotmat_cartesian(-np.pi, 'x')
+            rotmat = np.dot(rotmat1, rotmat2)
+        else:
+            raise ValueError(err_msg)
 
-    Returns
-    -------
-    m_prime : ndarray, shape (3, 3)
-        Converted (i.e. rotated) moment tensor defined in the 2nd (primed)
-        coordinate frame.
-    """
-    m = np.asarray(m, dtype=np.float)
-    rotmat = rotmat_about_x(-np.pi)
-    return np.linalg.multi_dot((rotmat.T, m, rotmat))
+    else:
+        raise ValueError(err_msg)
 
-
-def rotate_mt_ned2enu(m):
-    """
-    Convert (i.e. rotate) seismic moment tensor from North-East-Down (ned)
-    into East-North-Up (enu) coordinate system.
-
-    Parameters
-    ----------
-    m : ndarray, shape (3, 3)
-        Moment tensor as symmetric 3-by-3 matrix represented in the 1st
-        (original) coordinate frame.
-
-    Returns
-    -------
-    m_prime : ndarray, shape (3, 3)
-        Converted (i.e. rotated) moment tensor defined in the 2nd (primed)
-        coordinate frame.
-    """
-    m = np.asarray(m, dtype=np.float)
-    rotmat1 = rotmat_about_x(np.pi)
-    rotmat2 = rotmat_about_z(-np.pi / 2.)
-    rotmat = np.dot(rotmat1, rotmat2)
-    return np.linalg.multi_dot((rotmat.T, m, rotmat))
-
-
-def rotate_mt_enu2ned(m):
-    """
-    Convert (i.e. rotate) seismic moment tensor from East-North-Up (enu)
-    into North-East-Down (ned) coordinate system.
-
-    Parameters
-    ----------
-    m : ndarray, shape (3, 3)
-        Moment tensor as symmetric 3-by-3 matrix represented in the 1st
-        (original) coordinate frame.
-
-    Returns
-    -------
-    m_prime : ndarray, shape (3, 3)
-        Converted (i.e. rotated) moment tensor defined in the 2nd (primed)
-        coordinate frame.
-    """
-    m = np.asarray(m, dtype=np.float)
-    rotmat1 = rotmat_about_z(np.pi / 2.)
-    rotmat2 = rotmat_about_x(-np.pi)
-    rotmat = np.dot(rotmat1, rotmat2)
     return np.linalg.multi_dot((rotmat.T, m, rotmat))
 
 
@@ -300,7 +225,7 @@ def rotmat_ne2rt(bazi):
     ``N`` and ``E`` components of the seismogram, respectively.
     """
 
-    bazi = np.deg2rad(np.asarray(bazi, dtype=np.float))
+    bazi = np.deg2rad(np.asarray(bazi, dtype=np.float64))
     sb = np.sin(bazi)
     cb = np.cos(bazi)
 
@@ -352,8 +277,8 @@ def rotmat_zne2lqt(bazi, incid):
     where ``zne`` is an ndarray of shape ``(3, n_samples)``, whose rows are
     ``Z``, ``N`` and ``E`` components of the seismogram, respectively.
     """
-    bazi = np.deg2rad(np.asarray(bazi, dtype=np.float))
-    incid = np.deg2rad(np.asarray(incid, dtype=np.float))
+    bazi = np.deg2rad(np.asarray(bazi, dtype=np.float64))
+    incid = np.deg2rad(np.asarray(incid, dtype=np.float64))
 
     sb = np.sin(bazi)
     cb = np.cos(bazi)
@@ -371,13 +296,8 @@ def rotmat_zne2lqt(bazi, incid):
 
 
 __all__ = """
-    rotmat_about_x
-    rotmat_about_y
-    rotmat_about_z
-    rotate_mt_ned2nwu
-    rotate_mt_ned2enu
-    rotate_mt_enu2ned
-    rotate_mt_nwu2ned
+    rotmat_cartesian
+    rotate_mt
     rotmat_ne2rt
     rotmat_zne2lqt
 """.split()

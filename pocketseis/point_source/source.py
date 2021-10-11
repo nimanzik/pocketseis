@@ -433,9 +433,9 @@ class MTQTSource(gf.SourceWithMagnitude):
             sqrt2 = np.sqrt(2.)
             sqrt3 = np.sqrt(3.)
             sqrt6 = sqrt2 * sqrt3
-            a = (1./sqrt6) * np.array([[sqrt3, -1.0, sqrt2],
-                                       [0.0, 2.0, sqrt2],
-                                       [-sqrt3, -1.0, sqrt2]], dtype=np.float)
+            a = np.array([[sqrt3, -1.0, sqrt2],
+                          [0.0, 2.0, sqrt2],
+                          [-sqrt3, -1.0, sqrt2]], dtype=np.float64) / sqrt6
 
             b = np.array([np.sin(self.beta)*np.cos(self.gamma),
                           np.sin(self.beta)*np.sin(self.gamma),
