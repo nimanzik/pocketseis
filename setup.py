@@ -26,5 +26,5 @@ setup(
     classifiers=CLASSIFIERS,
     keywords="Seismology Volcano-Seismology Seismic-Sources",
     packages=[PACKAGE] + SUBPACKAGES,
-    package_dir={PACKAGE: 'src'},
+    package_dir={PACKAGE: 'pocketseis'},
     python_requires='>=3')
