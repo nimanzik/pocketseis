@@ -1,10 +1,7 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 
 PACKAGE = "pocketseis"
-
-SUBPACKAGES = [
-    "{pkg}.{subpkg}".format(pkg=PACKAGE, subpkg=x) for x in ['io', 'plot']]
 
 CLASSIFIERS = [
     "Development Status :: 1 - Planning",
@@ -16,7 +13,6 @@ CLASSIFIERS = [
     "Programming Language :: Python :: 3",
     "Topic :: Scientific/Engineering"]
 
-
 setup(
     name=PACKAGE,
     version="0.1.0",
@@ -25,6 +21,6 @@ setup(
     author_email="nima@cp.dias.ie; nima.nooshiri@gmail.com",
     classifiers=CLASSIFIERS,
     keywords="Seismology Volcano-Seismology Seismic-Sources",
-    packages=[PACKAGE] + SUBPACKAGES,
-    package_dir={PACKAGE: 'pocketseis'},
+    packages=find_packages(where='src'),
+    package_dir={'': 'src'},
     python_requires='>=3')
