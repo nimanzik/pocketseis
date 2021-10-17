@@ -11,8 +11,7 @@ from scipy.interpolate import interp1d
 from pyrocko import gf, moment_tensor as pmt
 from pyrocko.guts import Float, StringChoice, Int
 
-from pocketseis import rotation
-from pocketseis.point_source import mtensor
+from pocketseis import rotation, mtensor
 
 
 # ----------------------------------------

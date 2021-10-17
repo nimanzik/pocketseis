@@ -4,8 +4,7 @@ from setuptools import setup
 PACKAGE = "pocketseis"
 
 SUBPACKAGES = [
-    "{pkg}.{subpkg}".format(pkg=PACKAGE, subpkg=x) for x in [
-        "point_source"]]
+    "{pkg}.{subpkg}".format(pkg=PACKAGE, subpkg=x) for x in ['io', 'plot']]
 
 CLASSIFIERS = [
     "Development Status :: 1 - Planning",
@@ -27,5 +26,5 @@ setup(
     classifiers=CLASSIFIERS,
     keywords="Seismology Volcano-Seismology Seismic-Sources",
     packages=[PACKAGE] + SUBPACKAGES,
-    package_dir={PACKAGE: "pocketseis"},
+    package_dir={PACKAGE: 'src'},
     python_requires='>=3')

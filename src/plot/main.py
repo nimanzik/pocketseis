@@ -5,14 +5,14 @@ from pyrocko.util import time_to_str
 
 from .mpl_util import transform_data2axes, sci_tickformatter
 from pocketseis.plot.colors import darken_color
-from pocketseis.point_source.mtensor import magnitude_to_moment
+from pocketseis.mtensor import magnitude_to_moment
 from pocketseis.util import round_day
 from pocketseis.zmap import calculate_abs_fmd, calculate_cum_fmd, \
     gutenberg_richter
 
 
-KM2M = 1000.
-M2KM = 1. / KM2M
+KM2M = 1.0e+3
+M2KM = 1.0e-3
 
 
 def plot_cake_model(ax, earth_model, depth_min=None, depth_max=None,

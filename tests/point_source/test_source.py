@@ -5,7 +5,7 @@ import numpy as np
 from scipy.integrate import simps, cumtrapz
 
 from pocketseis import point_source as ps
-from pocketseis.point_source.mtensor import tuple6_to_symmat
+from pocketseis.mtensor import tuple6_to_symmat
 
 
 class PointSourceModelTestCase(unittest.TestCase):
