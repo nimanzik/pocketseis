@@ -137,7 +137,7 @@ def rotmat_cartesian(theta, axis):
     return np.squeeze(rotmat)
 
 
-def rotate_mt(m, conv_from, conv_to):
+def rotate_mt(m, from_to):
     """
     Convert (i.e. rotate) seismic moment tensor from one Cartesian
     coordinate system into another.
@@ -147,10 +147,13 @@ def rotate_mt(m, conv_from, conv_to):
     m : ndarray, shape (3, 3)
         Moment tensor as symmetric 3-by-3 matrix represented in the 1st
         (original) coordinate frame.
-    conv_from : {'NED', 'NWU', 'ENU'}
-        Original coordinate system.
-    conv_to : {'NED', 'NWU', 'ENU'}
-        Primed coordinate system.
+    from_to : str
+        Rotates the moment tensor from original coordinate system to
+        primed coordinate system. Available conversions are:
+        ``'NED->NWU'``: from North-East-Down to North-West-Up.
+        ``'NWU->NED'``: opposite of the previous case.
+        ``'NED->ENU'``: from North-East-Down to East-North-Up.
+        ``'ENU->NED'``: opposite of the previous case.
 
     Returns
     -------
@@ -159,38 +162,28 @@ def rotate_mt(m, conv_from, conv_to):
         coordinate frame.
     """
     m = np.asarray(m, dtype=np.float64)
-    conv_from = conv_from.upper()
-    conv_to = conv_to.upper()
-    err_msg = f"Conversion is not supported: {conv_from} -> {conv_to}"
+    from_to = from_to.upper()
 
-    if conv_from == 'NED':
-        if conv_to == 'NWU':
-            rotmat = rotmat_cartesian(np.pi, 'x')
-        elif conv_to == 'ENU':
-            rotmat1 = rotmat_cartesian(np.pi, 'x')
-            rotmat2 = rotmat_cartesian(-np.pi / 2.0, 'z')
-            rotmat = np.dot(rotmat1, rotmat2)
-        else:
-            raise ValueError(err_msg)
+    if from_to == 'NED->NWU':
+        rotmat = rotmat_cartesian(np.pi, 'x')
 
-    elif conv_from == 'NWU':
-        if conv_to == 'NED':
-            rotmat = rotmat_cartesian(-np.pi, 'x')
-        else:
-            raise ValueError(err_msg)
+    elif from_to == 'NWU->NED':
+        rotmat = rotmat_cartesian(-np.pi, 'x')
 
-    elif conv_from == 'ENU':
-        if conv_to == 'NED':
-            rotmat1 = rotmat_cartesian(np.pi / 2.0, 'z')
-            rotmat2 = rotmat_cartesian(-np.pi, 'x')
-            rotmat = np.dot(rotmat1, rotmat2)
-        else:
-            raise ValueError(err_msg)
+    elif from_to == 'NED->ENU':
+        rotmat1 = rotmat_cartesian(np.pi, 'x')
+        rotmat2 = rotmat_cartesian(-np.pi / 2.0, 'z')
+        rotmat = np.dot(rotmat1, rotmat2)
+
+    elif from_to == 'ENU->NED':
+        rotmat1 = rotmat_cartesian(np.pi / 2.0, 'z')
+        rotmat2 = rotmat_cartesian(-np.pi, 'x')
+        rotmat = np.dot(rotmat1, rotmat2)
 
     else:
-        raise ValueError(err_msg)
+        raise ValueError(f"Conversion is not supported: {from_to}")
 
-    return np.linalg.multi_dot((rotmat.T, m, rotmat))
+    return (rotmat.T @ m @ rotmat)
 
 
 def rotmat_ne2rt(bazi):

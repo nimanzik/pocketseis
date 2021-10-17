@@ -6,8 +6,6 @@ import numpy as np
 
 from pyrocko import moment_tensor as pmt
 
-from pocketseis.point_source import MTQTSource
-
 
 def tuple6_to_symmat(a):
     """
@@ -46,9 +44,8 @@ def symmat_to_tuple6(m):
         (M11, M22, M33, M12, M13, M23) order.
     """
     m = np.asarray(m, dtype=np.float64)
-    a = []
-    for offset in range(3):
-        a.extend(m.diagonal(offset=offset).tolist())
+    assert m.shape == (3, 3), 'moment tensor is a symmetric 3-by-3 array'
+    a = tuple(m.diagonal()) + (m[0, 1], m[0, 2], m[1, 2])
 
     return tuple(a)
 
@@ -199,7 +196,7 @@ def euclidean_distance(m1, m2):
     return d
 
 
-def random_mt(n_src=1, seed=None, method='s5'):
+def random_mt(n_src=1, seed=None, method='S5'):
     """
     Generate uniform distribution of unit-norm moment tensors.
 
@@ -283,6 +280,9 @@ def random_mt(n_src=1, seed=None, method='s5'):
 
     else:
         # See method #2 of section 9 of Tape & Tape (2015, GJI)
+        # Differ the import of MTQTSource to avoid circular import
+        from pocketseis.point_source import MTQTSource
+
         us = rng.uniform(low=0.0, high=0.75 * np.pi, size=n_src)
         vs = rng.uniform(low=-1.0 / 3.0, high=1.0 / 3.0, size=n_src)
         kappas = rng.uniform(low=0.0, high=2.0 * np.pi, size=n_src)

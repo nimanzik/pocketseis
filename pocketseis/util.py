@@ -3,15 +3,15 @@ Utility functions for PocketSeis.
 """
 
 from datetime import datetime, timedelta, timezone
-import os.path as op
+from pathlib import Path
 
 import numpy as np
 
 
 def time_to_index(t, deltat, snap=np.round):
     """
-    Returns indedx of  a time value in array of time axis (e.g. of a
-    seismic trace) assuming that starting time is zero.
+    Returns index of a time value in array of time axis (for instance,
+    of a seismic trace) assuming that starting time is zero.
 
     Parameters
     ----------
@@ -122,4 +122,27 @@ def round_half_up(a, decimals=0):
 
 
 def get_data_file(filename):
-    return op.join(op.split(__file__)[0], 'data', filename)
+    p = Path(__file__).absolute()
+    return p.parent.joinpath('data', filename)
+
+
+def column_stack_3d(array_2d):
+    """
+    Stack columns of a 2-D array into a 3-D array.
+
+    Parameters
+    ----------
+    array_2d : ndarray of shape (M, N)
+
+    Returns
+    -------
+    array_3d : ndarray of shape (N, M, 1)
+    """
+    assert array_2d.ndim == 2
+    n_rows, n_cols = array_2d.shape
+    return np.dstack(array_2d).reshape(n_cols, n_rows, 1)
+
+
+def issymmetric(a, tol=1.e-10):
+    """Check if given array/matrix is symmetric"""
+    return np.allclose(a, a.T, atol=tol)

@@ -401,7 +401,7 @@ class MTQTSource(gf.SourceWithMagnitude):
         Lunar longitude as a function of :py:attr:`.v` (TT15, eq. 24b)
         """
         if self._gamma is None:
-            self._gamma = (1./3.) * np.arcsin(3.*self.v)
+            self._gamma = (1.0 / 3.0) * np.arcsin(3.0 * self.v)
         return self._gamma
 
     @property
@@ -464,7 +464,7 @@ class MTQTSource(gf.SourceWithMagnitude):
         (TT15, eq. 9)
         """
         if self._rotmat_kappa is None:
-            self._rotmat_kappa = rotation.rotmat_about_z(-self.kappa)
+            self._rotmat_kappa = rotation.rotmat_cartesian(-self.kappa, 'z')
         return self._rotmat_kappa
 
     @property
@@ -474,7 +474,7 @@ class MTQTSource(gf.SourceWithMagnitude):
         (TT15, eq. 9)
         """
         if self._rotmat_theta is None:
-            self._rotmat_theta = rotation.rotmat_about_x(self.theta)
+            self._rotmat_theta = rotation.rotmat_cartesian(self.theta, 'x')
         return self._rotmat_theta
 
     @property
@@ -484,7 +484,7 @@ class MTQTSource(gf.SourceWithMagnitude):
         (TT15, eq. 9)
         """
         if self._rotmat_sigma is None:
-            self._rotmat_sigma = rotation.rotmat_about_z(self.sigma)
+            self._rotmat_sigma = rotation.rotmat_cartesian(self.sigma, 'z')
         return self._rotmat_sigma
 
     @property
@@ -493,9 +493,8 @@ class MTQTSource(gf.SourceWithMagnitude):
         Rotation matrix ``V`` defined in TT15, eq. 9.
         """
         if self._rotmat_V is None:
-            self._rotmat_V = np.linalg.multi_dot([self.rotmat_kappa,
-                                                  self.rotmat_theta,
-                                                  self.rotmat_sigma])
+            self._rotmat_V = (
+                self.rotmat_kappa @ self.rotmat_theta @ self.rotmat_sigma)
         return self._rotmat_V
 
     @property
@@ -504,8 +503,8 @@ class MTQTSource(gf.SourceWithMagnitude):
         Rotation matrix ``U`` defined in TT15, eq. 10.
         """
         if self._rotmat_U is None:
-            self._rotmat_U = np.matmul(self.rotmat_V,
-                                       rotation.rotmat_about_y(-np.pi/4.0))
+            self._rotmat_U = (
+                self.rotmat_V @ rotation.rotmat_cartesian(-np.pi / 4.0, 'y'))
         return self._rotmat_U
 
     @property
@@ -519,9 +518,9 @@ class MTQTSource(gf.SourceWithMagnitude):
         the rotation matrix :py:meth:`.self.rotmat_U`.
         """
         if self._m9_nwu is None:
-            self._m9_nwu = np.linalg.multi_dot([self.rotmat_U,
-                                                self.lune_lambda_matrix,
-                                                np.linalg.inv(self.rotmat_U)])
+            self._m9_nwu = (self.rotmat_U
+                            @ self.lune_lambda_matrix
+                            @ np.linalg.inv(self.rotmat_U))
         return self._m9_nwu
 
     @property
@@ -557,7 +556,7 @@ class MTQTSource(gf.SourceWithMagnitude):
         tensor).
         """
         if self._m9_ned is None:
-            self._m9_ned = rotation.rotate_mt_nwu2ned(self.m9_nwu)
+            self._m9_ned = rotation.rotate_mt(self.m9_nwu, 'NWU->NED')
         return self._m9_ned
 
     @property
