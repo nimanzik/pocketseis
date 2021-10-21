@@ -11,17 +11,21 @@ import numpy as np
 from ..util import get_data_file
 
 
-def get_scientific_cmap_names():
+def list_sci_cmaps():
     """
-    This function lists available scientific colormaps.
+    This function lists available scientific colormaps provided by
+    ``'ScientificColourMaps7'``.
 
     References
     ----------
-    .. [1] Crameri, F. "Geodynamic diagnostics, scientific visualization,
+    .. [1] Crameri, F. "Scientific colour maps2, Zenodo (2018),
+       doi:10.5281/zenodo.1243862
+    .. [2] Crameri, F. "Geodynamic diagnostics, scientific visualization,
        and StagLab 3.0." Geodynamic Model Development 11 (2018): 2541-2562.
     """
-    sci_cmaps = {
+    return {
         "Sequential": [
+            'batlow', 'batlowW', 'batlowK',
             'devon', 'lajolla', 'bamako',
             'davos', 'bilbao', 'nuuk',
             'oslo', 'grayC', 'hawaii',
@@ -29,18 +33,17 @@ def get_scientific_cmap_names():
             'acton', 'turku', 'imola'],
         "Diverging": [
             'broc', 'cork', 'vik',
-            'lisbon', 'tofino', 'berlin'],
-        "Special": [
-            'batlow', 'roma', 'oleron'],
+            'lisbon', 'tofino', 'berlin',
+            'roma', 'bam', 'vanimo'],
+        "Multi-sequential": [
+            'oleron', 'bukavo', 'fes'],
         "Cyclic": [
-            'romaO', 'brocO', 'corkO', 'vikO']}
-
-    return sci_cmaps
+            'romaO', 'bamO', 'brocO', 'corkO', 'vikO']}
 
 
-def get_scientific_cmap(name):
+def get_sci_cmap(name):
     """
-    Get a colormap instance provided by ``'ScientificColourMaps6'``.
+    Get a colormap instance provided by ``'ScientificColourMaps7'``.
 
     Parameters
     ----------
@@ -75,7 +78,7 @@ def get_scientific_cmap(name):
     return cmap
 
 
-def hex2rgb_tuple(c_hex):
+def hex2rgb(c_hex, to_gmtcolor=False):
     """
     Convert Hex to RGB colors.
 
@@ -83,11 +86,15 @@ def hex2rgb_tuple(c_hex):
     ----------
     c_hex : str
         Hex color value starting with ``#``. Example: ``'#88b7c6'``
+    to_gmtcolor : bool
+        If True, the output color is transformed into the string form
+        `R/G/B` which GMT expects. Default is False.
 
     Returns
     -------
-    c_rgb : tuple of 3 int
-        RGB color value in the range of 0-255.
+    c_rgb : tuple of 3 int or str
+        RGB color value in the range of 0-255. If `to_gmtcolor=True`,
+        values are separated by ``/`` and returned in string format.
     """
 
     c_hex = c_hex.lstrip('#')
@@ -95,26 +102,11 @@ def hex2rgb_tuple(c_hex):
 
     # Base 16 integers
     c_rgb = tuple(int(c_hex[i:i+2], 16) for i in range(0, n, 2))
+
+    if to_gmtcolor:
+        return '/'.join([str(v) for v in c_rgb])
+
     return c_rgb
-
-
-def hex2rgb_str(c_hex):
-    """
-    Convert Hex to RGB colors.
-
-    Parameters
-    ----------
-    c_hex : str
-        Hex color value starting with ``#``. Example: ``'#88b7c6'``
-
-    Returns
-    -------
-    c_rgb : str
-        RGB color value in the range 0-255, separated by ``/``.
-    """
-
-    c_rgb = hex2rgb_tuple(c_hex)
-    return '/'.join([str(v) for v in c_rgb])
 
 
 def rgb2hex(c_rgb):
@@ -188,7 +180,7 @@ def lighten_color(color, factor):
         isstr = True
         if color.startswith('#'):
             ishex = True
-            c_rgb = hex2rgb_tuple(color)
+            c_rgb = hex2rgb(color)
         else:
             ishex = False
             c_rgb = tuple(map(int, color.split('/')))
@@ -231,7 +223,7 @@ def darken_color(color, factor):
         isstr = True
         if color.startswith('#'):
             ishex = True
-            c_rgb = hex2rgb_tuple(color)
+            c_rgb = hex2rgb(color)
         else:
             ishex = False
             c_rgb = tuple(map(int, color.split('/')))
@@ -251,10 +243,9 @@ def darken_color(color, factor):
 
 
 __all__ = """
-    get_scientific_cmap_names
-    get_scientific_cmap
-    hex2rgb_tuple
-    hex2rgb_str
+    list_sci_cmaps
+    get_sci_cmap
+    hex2rgb
     rgb2hex
     lighten_color
     darken_color

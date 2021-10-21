@@ -51,10 +51,10 @@ class SurfaceDASCable(Object):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self._n_channels = None
-        self._channel_locs = None
-        self._channel_lats = None
-        self._channel_lons = None
+        self.n_channels = self._get_n_channels()
+        (self.channel_locs,
+            self._channel_lats,
+            self._channel_lons) = self._get_channel_locs_lats_lons()
         self._real_length = None
         self._real_zerooffset_loc = None
         self._grid_spacing = None
@@ -63,20 +63,27 @@ class SurfaceDASCable(Object):
         self._grid_lats = None
         self._grid_lons = None
 
-    @property
-    def n_channels(self):
+    def _get_n_channels(self):
         """
         Returns
         -------
         n : int
             Number of channels.
         """
-        if self._n_channels is None:
-            self._n_channels = (
-                int(round(self.nominal_length / self.channel_spacing)) + 1)
-        return self._n_channels
+        return int(round(self.nominal_length / self.channel_spacing)) + 1
 
     def _get_channel_locs_lats_lons(self):
+        """
+        Geographical locations of the channels, as well as their
+        latitudes and longitudes.
+
+        Returns
+        -------
+        out : tuple of 3
+            0 -> List of :py:class:`pyrocko.model.Location` objects
+            1 -> ndarray of channel latitudes
+            2 -> ndarray of channel longitudes
+        """
         cha_offsets = np.linspace(
             0.0, self.nominal_length, self.n_channels)
 
@@ -92,22 +99,6 @@ class SurfaceDASCable(Object):
             cha_locs.append(pmodel.Location(lat=clat, lon=clon))
 
         return (cha_locs, cha_lats, cha_lons)
-
-    @property
-    def channel_locs(self):
-        """
-        Geographical locations of the channels.
-
-        Returns
-        -------
-        list of :py:class:`pyrocko.model.Location` objects
-        """
-        if self._channel_locs is None:
-            cha_locs, cha_lats, cha_lons = self._get_channel_locs_lats_lons()
-            self._channel_locs = cha_locs
-            self._channel_lats = cha_lats
-            self._channel_lons = cha_lons
-        return self._channel_locs
 
     @property
     def real_length(self):
@@ -240,7 +231,7 @@ class SurfaceDASCable(Object):
 
 def calc_radiation_pattern_factors(
         mt_symmat, dircos_vecs, quantity, far=True, intermediate=True,
-        near=True, intermediate_far=True, intermediate_near=True, ):
+        near=True, intermediate_far=True, intermediate_near=True):
     """
     Parameters
     ----------
@@ -266,7 +257,6 @@ def calc_radiation_pattern_factors(
         `axis` are 'x', 'y' and 'z' (indices of 0, 1 and 2,
         respectively).
     """
-    n_rec = dircos_vecs.shape[1]
 
     # Dimension and coordinate names of output dataset
     dims = ['axis', 'i_reciever']
@@ -278,6 +268,7 @@ def calc_radiation_pattern_factors(
     Γ = column_stack_3d(np.asarray(dircos_vecs, dtype=np.float64))
     ΓT = Γ.transpose((0, 2, 1))
 
+    n_rec = dircos_vecs.shape[1]
     assert M.shape == (3, 3)
     assert Γ.shape == (n_rec, 3, 1)
     assert ΓT.shape == (n_rec, 1, 3)
@@ -465,6 +456,17 @@ class HIFullMaterial(Object):
     vp = Float.T(help='P-wave velocity. Unit: [m/s]')
     vs = Float.T(help='S-wave velocity. Unit: [m/s]')
     rho = Float.T(help='Density. Unit: [kg/m^3]')
+
+    @property
+    def lame_constants(self):
+        """
+        Returns
+        -------
+        2-tuple of (λ, μ)
+        """
+        μ = self.vs**2 * self.rho
+        λ = self.vp**2 * self.rho - (2.0 * μ)
+        return (λ, μ)
 
 
 class HIFullScenario(Object):

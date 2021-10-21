@@ -99,7 +99,7 @@ def sci_strformatter(x, decimals=2, precision=None, exponent=None):
     return r"${0:.{1}f}\times10^{{{2:d}}}$".format(coeff, precision, exponent)
 
 
-def create_cbar_axes(ax, position='right', size='5%', pad='3%'):
+def create_cbar_axes(ax, position, size, pad='3%'):
     """
     Create a new axes into which a colorbar can be drawn. Using an axes
     divider, created axes has the same height (or width) of the main axes.

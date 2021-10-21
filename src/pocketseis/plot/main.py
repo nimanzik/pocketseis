@@ -1,7 +1,7 @@
 from matplotlib import colors, cm
 import numpy as np
 
-from pyrocko.util import time_to_str
+from pyrocko.util import time_to_str as tts
 
 from .mpl_util import transform_data2axes, sci_tickformatter
 from pocketseis.plot.colors import darken_color
@@ -168,7 +168,7 @@ def set_xticks_as_daymonth(ax, rotation=0.0):
     """
     Helper function to set xtick labels as ``%d %b``
     """
-    xticklabels = [time_to_str(x, format='%d %b') for x in ax.get_xticks()]
+    xticklabels = [tts(x, format='%d %b') for x in ax.get_xticks()]
     ax.set_xticklabels(xticklabels, rotation=rotation)
 
 
@@ -176,7 +176,7 @@ def set_xticks_as_fulldate(ax, rotation=0.0):
     """
     Helper function to set xtick labels as ``%d %b %Y``
     """
-    xticklabels = [time_to_str(x, format='%d %b %Y') for x in ax.get_xticks()]
+    xticklabels = [tts(x, format='%d %b %Y') for x in ax.get_xticks()]
     ax.set_xticklabels(xticklabels, rotation=rotation)
 
 
