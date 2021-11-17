@@ -7,9 +7,9 @@ from pocketseis import hifull
 from pocketseis.plot import get_sci_cmap
 
 
-class SphereConfigSpace(object):
+class UnitSphereFullSurface(object):
     """
-    Sphere configuration space.
+    Unit-sphere configuration space.
 
     Parameters
     ----------
@@ -103,7 +103,7 @@ def _draw_cartesian_axes(ax3d, extent=1.5, **kwargs):
     ax3d.plot(zeros2, minmax, zeros2, color)
     ax3d.plot(zeros2, zeros2, minmax * f, color)
 
-    text_kwargs = dict(va='top', backgroundcolor='w')
+    text_kwargs = dict(va='top', backgroundcolor='w', alpha=0.5)
     ax3d.text(0, extent, 0, r'$x$', ha='left', **text_kwargs)
     ax3d.text(extent, 0, 0, r'$y$', ha='right', **text_kwargs)
     ax3d.text(0, 0, -extent * f, r'$z$', ha='left', **text_kwargs)
@@ -125,35 +125,9 @@ def _set_aspect_equal(ax3d):
     ax3d.set_box_aspect((x_range, y_range, z_range*0.925))   # Bug in mpl?
 
 
-def _final_touch(ax3d, view_angles):
-    """
-    Prepare the axes object for final illustration.
-
-    Parameters
-    ----------
-    ax3d : :py:class:`mpl_toolkits.mplot3d.axes3d.Axes3D`
-        Matplotlib ``Axes3D`` object to plot in.
-
-    view_angles : tuple or list of 2 floats [elev, azim]
-        Set the elevation and azimuth of the axes in degrees (not
-        radians). `elev` is the angle above (positive) or below
-        (negative) the (x1, x2) plane. `azim` is a polar angle in the
-        (x1, x2) plane, with positive angles indicating counterclockwise
-        rotationof the viewpoint. Units: [deg]
-
-    Returns
-    -------
-    None
-    """
-    _check_isaxes3d(ax3d)
-    ax3d.axis('off')
-    elev, azim = view_angles
-    ax3d.view_init(elev=elev, azim=azim)
-
-
 def plot_radiation_pattern(
-        ax3d, mt_symmat, quantity, field, wave, direction=None, qsphere=None,
-        view_angles=(15, 35)):
+        ax3d, mt_symmat, quantity, wave_field, wave_type, direction=None,
+        qsphere=None, view_angles=(15, 35)):
     """
     Parameters
     ----------
@@ -161,11 +135,11 @@ def plot_radiation_pattern(
         Seismic moment tensor as a plain **symmetric** matrix.
     quantity : {'displacement', 'strain'}
         Measurement quantity type.
-    field : str
-        Displacement or strain field term.
+    wave_field : str
+        Displacement or strain wave-field component.
         If `quantity='displacement'` -> 'F', 'I' and 'N'
         If `quantity='strain'` -> 'F', 'IF', 'IN' and 'N'
-    wave : {'P', 'S'}
+    wave_type : {'P', 'S'}
         Seismic wave type.
     direction : {'radial', 'polar', 'azimuthal'}
         Spherical direction. The radiation pattern is decomposed along
@@ -174,30 +148,35 @@ def plot_radiation_pattern(
         `'polar'` -> Tangent to the great circle,
         `'azimuthal'` -> Tangent to the small circle parallel to the
         (x, y) plane.
-    qsphere : :py:class:`.SphereConfigSpace` object
+    qsphere : :py:class:`.UnitSphereFullSurface` object
         Spherical configuration space with points, unit vectors etc as
         its attributes (optional).
     view_angles : tuple or list of 2 float
-        View angles [elevation, azimuth]. Units: [deg]. Default
-        values are [elev=15, azim=35]
+        View angles [elevation, azimuth]. Units: [deg].
+        Set the elevation and azimuth of the axes in degrees (not
+        radians). `elev` is the angle above (positive) or below
+        (negative) the horizontal plane. `azim` is a polar angle in the
+        horizontal plane, with positive angles indicating
+        counter-clockwise rotation of the view-point.
+        Default values are [elev=15, azim=35]
     """
     if direction is not None and \
             direction not in ('radial', 'azimuthal', 'polar'):
         raise ValueError(f"invalid direction: '{direction}'")
 
     if qsphere is None:
-        qsphere = SphereConfigSpace()
+        qsphere = UnitSphereFullSurface()
 
-    if (wave := wave.upper()) not in (validwaves := ('P', 'S')):
-        raise ValueError(f"Valid values for wave are {validwaves}")
+    if (wave_type := wave_type.upper()) not in (validwaves := ('P', 'S')):
+        raise ValueError(f"Valid values for wave_type are {validwaves}")
 
-    key = field + wave if field != 'N' else field
+    key = wave_field if wave_field == 'N' else wave_field + wave_type
     F = hifull.calc_radiation_pattern_factors(
         mt_symmat, qsphere.gamma_uv, quantity)[key].values
 
     # Project r-pattern factors
     if direction is None:
-        if wave == 'P':
+        if wave_type == 'P':
             # P r-pattern in radial direction
             direction = 'radial'
             R = np.sum(qsphere.gamma_uv * F, axis=0)
@@ -227,7 +206,7 @@ def plot_radiation_pattern(
     # illustration purpose
     mags = maxabs_scale(np.sqrt(R**2))
 
-    if wave == 'P':
+    if wave_type == 'P':
         cmap = get_sci_cmap('berlin')
         norm = Normalize(-1, 1)
     else:
@@ -251,9 +230,11 @@ def plot_radiation_pattern(
         vx, vy, vz, facecolors=facecolors, alpha=0.9, linewidth=0,
         edgecolors='k', rstride=1, cstride=1)
 
+    elev, azim = view_angles
+    ax3d.view_init(elev=elev, azim=azim)
+    ax3d.axis('off')
     _draw_cartesian_axes(ax3d)
     _set_aspect_equal(ax3d)
-    _final_touch(ax3d, view_angles)
 
 
-__all__ = ['SphereConfigSpace', 'plot_radiation_pattern']
+__all__ = ['UnitSphereFullSurface', 'plot_radiation_pattern']

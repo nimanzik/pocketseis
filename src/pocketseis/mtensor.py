@@ -196,7 +196,7 @@ def euclidean_distance(m1, m2):
     return d
 
 
-def random_mt(n_src=1, seed=None, method='S5'):
+def random_mt(n_src=1, method='S5', seed=None):
     """
     Generate uniform distribution of unit-norm moment tensors.
 
@@ -236,8 +236,8 @@ def random_mt(n_src=1, seed=None, method='S5'):
     two_pi = 2.0 * np.pi
     sqrt2 = np.sqrt(2.0)
 
+    # Eq. 6 of Staehler & Sigloch (2014, SE)
     if method == 'S5':
-        # See eq. 6 of Staehler & Sigloch (2014, SE)
         xs = np.zeros((5, n_src), dtype=np.float64)
         for i_row in range(5):
             xs[i_row] = rng.uniform(low=0.0, high=1.0, size=n_src)
@@ -264,8 +264,8 @@ def random_mt(n_src=1, seed=None, method='S5'):
             m = pmt.symmat6(*a_tuple)
             mt_list.append(pmt.MomentTensor(m=m))
 
+    # Method 1 of section 9 of Tape & Tape (2015, GJI)
     elif method == 'R6':
-        # See method #1 of section 9 of Tape & Tape (2015, GJI)
         vs = np.zeros((6, n_src), dtype=np.float64)
         for i_row in range(6):
             vs[i_row] = rng.normal(loc=0.0, scale=1.0, size=n_src)
@@ -278,8 +278,8 @@ def random_mt(n_src=1, seed=None, method='S5'):
             m = pmt.symmat6(*a_tuple)
             mt_list.append(pmt.MomentTensor(m=m))
 
+    # Method 2 of section 9 of Tape & Tape (2015, GJI)
     else:
-        # See method #2 of section 9 of Tape & Tape (2015, GJI)
         # Differ the import of MTQTSource to avoid circular import
         from pocketseis.point_source import MTQTSource
 

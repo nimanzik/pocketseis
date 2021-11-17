@@ -8,10 +8,11 @@ seismograms.
 import numpy as np
 from scipy.interpolate import interp1d
 
-from pyrocko import gf, moment_tensor as pmt
-from pyrocko.guts import Float, StringChoice, Int
+from pyrocko import gf, moment_tensor as pmt, cake
+from pyrocko.guts import Float, StringChoice, Int, Choice
 
 from pocketseis import rotation, mtensor
+from pocketseis.hifull import HIFullMaterial
 
 
 # ----------------------------------------
@@ -347,20 +348,6 @@ class MTQTSource(gf.SourceWithMagnitude):
 
     discretized_source_class = gf.DiscretizedMTSource
 
-    @classmethod
-    def generate_randomly(cls, magnitude=6., seed=None):
-        """
-        Randomly generates an MT-QT source.
-        """
-        rng = np.random.default_rng(seed=seed)
-        u = rng.uniform(low=0., high=0.75*np.pi)
-        v = rng.uniform(low=-1./3., high=1./3.)
-        kappa = rng.uniform(low=0., high=2.*np.pi)
-        sigma = rng.uniform(low=-0.5*np.pi, high=0.5*np.pi)
-        h = rng.uniform(low=0., high=1.)
-        return cls(u=u, v=v, kappa=kappa, sigma=sigma, h=h,
-                   magnitude=magnitude)
-
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._beta = None
@@ -658,6 +645,86 @@ class MTQTSource(gf.SourceWithMagnitude):
     #     return super(MTQTSource, cls).from_pyrocko_event(event, **d)
 
 
+class TensileSource(gf.Source):
+    strike = Float.T(
+        default=0.0,
+        help='Strike direction measured clockwise from North. Unit: [deg]')
+    dip = Float.T(
+        default=0.0,
+        help='Dip angle measured from the surface to the fault in the '
+             'direction of dip. Unit: [deg]')
+    rake = Float.T(
+        default=0.0,
+        help='Rake angle measured on the fault surface from the strike '
+             'direction counter-clockwise to the slip vector. Unit: [deg]')
+    dislocation_slope = Float.T(
+        default=0.0,
+        help='Angle α defining the deviation of the dislocation vector '
+             'from the fault plane. '
+             'α ∈ (0, +90] -> extensive (opening) source, '
+             'α = 0 -> shear source, '
+             'α ∈ [-90, 0) -> compressive (closing) source.')
+    length = Float.T(
+        default=1.0,
+        help='Length of rectangular source area. Unit [m]')
+
+    width = Float.T(
+        default=1.0,
+        help='Width of rectangular source area. Unit: [m]')
+    dislocation = Float.T(
+        default=1.0,
+        help='The magnitude of dislocation vector. Unit: [m]')
+    material = HIFullMaterial.T(
+        default=HIFullMaterial(),
+        help='Isotropic elastic material')
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.fault_area = self.length * self.width
+        self.potency = self.dislocation * self.fault_area
+        self._potency_tensor = None
+
+    @property
+    def potency_tensor(self):
+        if self._potency_tensor is None:
+            sinϕ, cosϕ = np.sin(self.strike), np.cos(self.strike)
+            sinδ, cosδ = np.sin(self.dip), np.cos(self.dip)
+            sinλ, cosλ = np.sin(self.rake), np.cos(self.rake)
+            sinα, cosα = (
+                np.sin(self.dislocation_slope), np.cos(self.dislocation_slope))
+
+            n = np.array([-sinδ * sinϕ, sinδ * cosϕ, -cosδ])[:, np.newaxis]
+
+            v1 = (
+                (cosλ * cosϕ + cosδ * sinλ * sinϕ) * cosα
+                - (sinδ * sinϕ * sinα))
+            v2 = (
+                (cosλ * sinϕ - cosδ * sinλ * cosϕ) * cosα
+                + (sinδ * cosϕ * sinα))
+            v3 = (-sinλ * sinδ * cosα) - (cosδ * sinα)
+            v = np.array([v1, v2, v3])[:, np.newaxis]
+
+            D = (self.potency / 2.0) * (np.outer(n, v) + np.outer(v, n))
+            self._potency_tensor = D
+
+        return self._potency_tensor
+
+    def pyrocko_moment_tensor(self):
+        """Moment tensor in an isotropic medium."""
+
+        D = self.potency_tensor
+        Dkk = D.trace()
+        λ, μ = self.material.lame()
+        m6 = (
+            (λ * Dkk) + 2.0 * μ * D[0, 0],
+            (λ * Dkk) + 2.0 * μ * D[1, 1],
+            (λ * Dkk) + 2.0 * μ * D[2, 2],
+            2.0 * μ * D[0, 1],
+            2.0 * μ * D[0, 2],
+            2.0 * μ * D[1, 2])
+        return pmt.MomentTensor.from_values(m6)
+
+
 __all__ = """
     SmoothRampSTF
     GaussianSTF
@@ -665,4 +732,5 @@ __all__ = """
     StepResponseSTF
     ImpulseResponseSTF
     MTQTSource
+    TensileSource
 """.split()
