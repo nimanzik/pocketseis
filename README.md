@@ -1,5 +1,7 @@
 # PocketSeis - a pocket tool for seismology
 
+![](https://img.shields.io/badge/licence-GPL--3.0-orange)
+
 This repository contains Python modules and scripts to facilitate repetitive
 tasks in seismological projects.
 
