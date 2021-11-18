@@ -4,7 +4,7 @@ import numpy as np
 from pyrocko.util import time_to_str as tts
 
 from .mpl_util import transform_data2axes, sci_tickformatter
-from pocketseis.plot.colors import darken_color
+from .colors import darken_color
 from pocketseis.mtensor import magnitude_to_moment
 from pocketseis.util import round_day
 from pocketseis.zmap import calculate_abs_fmd, calculate_cum_fmd, \

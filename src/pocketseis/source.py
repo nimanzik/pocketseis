@@ -8,8 +8,8 @@ seismograms.
 import numpy as np
 from scipy.interpolate import interp1d
 
-from pyrocko import gf, moment_tensor as pmt, cake
-from pyrocko.guts import Float, StringChoice, Int, Choice
+from pyrocko import gf, moment_tensor as pmt
+from pyrocko.guts import Float, StringChoice, Int
 
 from pocketseis import rotation, mtensor
 from pocketseis.hifull import HIFullMaterial

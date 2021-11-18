@@ -8,7 +8,7 @@ import os.path as op
 from matplotlib.colors import LinearSegmentedColormap
 import numpy as np
 
-from ..util import get_data_file
+from pocketseis.util import get_data_file
 
 
 def list_sci_cmaps():
