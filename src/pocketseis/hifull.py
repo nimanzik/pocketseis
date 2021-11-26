@@ -1,13 +1,16 @@
 import numpy as np
 from scipy.signal import fftconvolve
 
-from pyrocko import model as pmodel, orthodrome as pod, cake
+from pyrocko import model as pmodel, orthodrome as pod
 from pyrocko.guts import Object, Float
 from torch.nn.functional import conv2d
 import torch
 from xarray import Dataset
 
 from pocketseis.util import column_stack_3d, time_to_index, time_range
+
+
+guts_prefix = 'pf'
 
 
 def _get_relative_data(lat0, lon0, depth0, lats, lons, depths):
@@ -600,7 +603,8 @@ class StrainHIFullScenario(HIFullScenario):
         # Time-dependent seismic moment, M(t). It should be normalised
         # to one, otherwise the source magnitude becomes meaningless.
         _, D = source.stf.discretize_t(self.deltat, 0.0)
-        D /= self.deltat
+        if D.size > 1:
+            D /= self.deltat
         assert D.max() == 1.0, 'Seismic moment STF should be normalized to 1'
 
         # Seismic moment-rate, dM(t)/dt
@@ -796,7 +800,8 @@ class DisplacementHIFullScenario(HIFullScenario):
         # Time-dependent seismic moment, M(t). It should be normalised
         # to one, otherwise the source magnitude becomes meaningless.
         _, D = source.stf.discretize_t(self.deltat, 0.0)
-        D /= self.deltat
+        if D.size > 1:
+            D /= self.deltat
         assert D.max() == 1.0, 'Seismic moment STF should be normalized to 1'
 
         # Seismic moment-rate, dM(t)/dt
