@@ -12,7 +12,7 @@ from pyrocko import gf, moment_tensor as pmt
 from pyrocko.guts import Float, StringChoice, Int
 
 from pocketseis import rotation, mtensor
-from pocketseis.hifull import HIFullMaterial
+from pocketseis.minimum_1d import HIFullMaterial
 
 
 # ----------------------------------------
@@ -71,6 +71,13 @@ class SmoothRampSTF(BaseSTF):
     STF model is based on analytical seismic moment function, M(t),
     according to either Bruestle & Mueller (1983) or Ohtsu (1995).
 
+    Notes
+    -----
+    Maximum amplitude of near-field displacement STF must be 1. However,
+    in `pyrocko.gf.seismoseizer` post-processing step, the convolution
+    is not multiplied by `Δt`. Therefore, we normalize `M(t)` amplitudes
+    to `Δt`.
+
     References
     ----------
     .. [1] Br{\"u}stle, W., & M{\"u}ller, G. (1983). Moment and duration of
@@ -88,7 +95,7 @@ class SmoothRampSTF(BaseSTF):
              "For more details on analytical relations, see "
              "Bruestle & Mueller (1983), and Ohtsu (1995).")
 
-    def discretize_t(self, deltat, tref):
+    def discretize_t(self, deltat, tref, normalise=True):
         tmin_stf, tmax_stf = self.tminmax_stf(tref)
         tmin = round(tmin_stf / deltat) * deltat
         tmax = round(tmax_stf / deltat) * deltat
@@ -101,19 +108,18 @@ class SmoothRampSTF(BaseSTF):
 
             if self.model == 'BrMu83':
                 # Bruestle & Mueller (1983) model
-                amplitudes = (
-                    1. - np.cos(omega_t) + (np.cos(3. * omega_t) - 1.) / 9.)
+                amplitudes = (9.0 / 16.0) * (
+                    1.0 - np.cos(omega_t)
+                    + ((np.cos(3.0 * omega_t) - 1.0) / 9.0))
             elif self.model == 'Ohtsu95':
                 # Ohtsu (1995) model
                 amplitudes = (self.duration / (32.0 * np.pi)) * \
-                    (12.0 * omega_t
-                     - 8.0 * np.sin(2.0 * omega_t)
+                    ((12.0 * omega_t)
+                     - (8.0 * np.sin(2.0 * omega_t))
                      + np.sin(4.0 * omega_t))
 
-            # Normalized M(t) -> its maximum amplitude == deltat
-            # (in `pyrocko.gf.seismoseizer`, the convolution output
-            # in post-processing step is not multiplied by deltat)
-            amplitudes *= (deltat / np.max(amplitudes))
+            if normalise:
+                amplitudes *= (deltat / amplitudes.max())
         else:
             amplitudes = np.ones(1)
 
@@ -127,6 +133,16 @@ class GaussianSTF(BaseSTF):
     STF model is based on analytical moment-rate function, dM(t)/dt,
     according to either Bruestle & Mueller (1983) or Ohtsu (1995).
 
+    Notes
+    -----
+    Integral (area under the curve) of far-field displacement STF must
+    be 1. Equivalently, its maximum amplitude must be (roghly) `2/T`,
+    where `T` is the STF duration (simply draw a trinale with support
+    length `T` to derive this). Since in `pyrocko.gf.seismoseizer`
+    post-processing step, the convolution is not multiplied by `Δt`, we
+    normalize `dM(t)/dt` amplitudes to `(2/T) * Δt`, so its numerical
+    integral becomes `Δt` (similar to `pyrocko` moment-rate STFs).
+
     References
     ----------
     .. [1] Br{\"u}stle, W., & M{\"u}ller, G. (1983). Moment and duration of
@@ -144,33 +160,32 @@ class GaussianSTF(BaseSTF):
              "For more details on analytical relations, see "
              "Bruestle & Mueller (1983), and Ohtsu (1995).")
 
-    def discretize_t(self, deltat, tref):
+    def discretize_t(self, deltat, tref, normalise=True):
         tmin_stf, tmax_stf = self.tminmax_stf(tref)
         tmin = round(tmin_stf/deltat) * deltat
         tmax = round(tmax_stf/deltat) * deltat
         nt = int(round((tmax-tmin)/deltat)) + 1
         times = np.linspace(tmin, tmax, nt)
         if nt > 1:
-            t_dummy = np.linspace(tmin-0.5*deltat, tmax+0.5*deltat, nt+1)
+            t_dummy = np.linspace(tmin-0.5*deltat, tmax+0.5*deltat, nt)
             t_edges = np.maximum(tmin_stf, np.minimum(tmax_stf, t_dummy))
-            omega_t = (t_edges-tmin_stf) * np.pi / self.duration
+            omega = np.pi / self.duration
+            omega_t = omega * (t_edges - tmin_stf)
 
             if self.model == 'BrMu83':
-                # ## Bruestle & Mueller (1983) model
-                fint = 1. - np.cos(omega_t) + (np.cos(3.*omega_t)-1.)/9.
-                # Numerical differentiation
-                amplitudes = fint[1:] - fint[:-1]
-            elif self.model == 'Ohtsu95':
-                # ## Ohtsu (1995) model
-                fint = (self.duration/(32.*np.pi)) * (
-                    12.*omega_t - 8.*np.sin(2.*omega_t) + np.sin(4.*omega_t))
-                # Numerical differentiation
-                amplitudes = fint[1:] - fint[:-1]
+                # Bruestle & Mueller (1983) model
+                amplitudes = (9.0 / 16.0) * (
+                    (omega / 3.0)
+                    * ((3.0 * np.sin(omega_t)) - np.sin(3.0 * omega_t)))
 
-            # Normalized dM(t)/dt -> its numerical integration == deltat
-            # (in `pyrocko.gf.seismoseizer`, the convolution output in
-            # post-processing step is not multiplied by deltat)
-            amplitudes /= np.sum(amplitudes)
+            elif self.model == 'Ohtsu95':
+                # Ohtsu (1995) model
+                amplitudes = (
+                    3.0 - (4.0 * np.cos(2.0 * omega_t))
+                    + np.cos(4.0 * omega_t)) / 8.0
+
+            if normalise:
+                amplitudes /= np.sum(amplitudes)
         else:
             amplitudes = np.ones(1)
 
@@ -184,6 +199,15 @@ class ZeroCrossingSTF(BaseSTF):
     STF model is based on the time derivative of analytical moment-rate
     function according to either Bruestle & Mueller (1983) or Ohtsu (1995).
 
+    Notes
+    -----
+    For far-filed velocity STF, the integral is zero and its maximum
+    amplitude is (roughly) `(2/T)²` (simply draw a triangle with support
+    length `T` and take its derivative, that is a step-like function, to
+    derive this). Since in `pyrocko.gf.seismoseizer` post-processing step,
+    the convolution is not multiplied by `Δt`, we normalize amplitudes to
+    `(2/T)² * Δt`.
+
     References
     ----------
     .. [1] Br{\"u}stle, W., & M{\"u}ller, G. (1983). Moment and duration of
@@ -201,32 +225,30 @@ class ZeroCrossingSTF(BaseSTF):
              "For more details on analytical relations, see "
              "Bruestle & Mueller (1983), and Ohtsu (1995).")
 
-    def discretize_t(self, deltat, tref):
+    def discretize_t(self, deltat, tref, normalise=True):
         tmin_stf, tmax_stf = self.tminmax_stf(tref)
         tmin = round(tmin_stf/deltat) * deltat
         tmax = round(tmax_stf/deltat) * deltat
         nt = int(round((tmax-tmin)/deltat)) + 1
         times = np.linspace(tmin, tmax, nt)
         if nt > 1:
-            t_dummy = np.linspace(tmin-0.5*deltat, tmax+0.5*deltat, nt+1)
+            t_dummy = np.linspace(tmin-0.5*deltat, tmax+0.5*deltat, nt)
             t_edges = np.maximum(tmin_stf, np.minimum(tmax_stf, t_dummy))
             omega = np.pi / self.duration
             omega_t = (t_edges-tmin_stf) * omega
 
             if self.model == 'BrMu83':
-                # ## Bruestle & Mueller (1983) model
-                fint = (omega/3.) * (3.*np.sin(omega_t) - np.sin(3.*omega_t))
+                # Bruestle & Mueller (1983) model
+                amplitudes = (9.0 / 16.0) * (
+                    omega**2 * (np.cos(omega_t) - np.cos(3.0 * omega_t)))
             elif self.model == 'Ohtsu95':
-                # ## Ohtsu (1995) model
-                fint = (3. - 4.*np.cos(2.*omega_t) + np.cos(4.*omega_t)) / 8.
+                # Ohtsu (1995) model
+                amplitudes = (omega / 2.0) * (
+                    (2.0 * np.sin(2.0 * omega_t)) - np.sin(4.0 * omega_t))
 
-            # Normalized dM(t)/dt -> its numerical integration == deltat
-            # (in `pyrocko.gf.seismoseizer`, the convolution output in
-            # post-processing step is not multiplied by deltat)
-            fint /= np.sum(fint)
-
-            # Numerical differentiation
-            amplitudes = (fint[1:] - fint[:-1]) / deltat
+            if normalise:
+                amplitudes /= amplitudes.max()
+                amplitudes *= (deltat * (2.356194490192345 / self.duration)**2)
         else:
             amplitudes = np.ones(1)
 
@@ -237,8 +259,7 @@ class StepResponseSTF(BaseSTF):
     """
     Unit-step response solution of a critically damped 2nd order mechanical
     system (with static friction and a dynamic friction proportional to slip
-    velocity) for near-field displacement source-time function (dislocation
-    history).
+    velocity) for near-field displacement STF (dislocation history).
 
     References
     ----------
@@ -252,7 +273,7 @@ class StepResponseSTF(BaseSTF):
              "source-time function. It a positive integer. The larger this "
              "parameter the narrower the pulse.")
 
-    def discretize_t(self, deltat, tref):
+    def discretize_t(self, deltat, tref, normalise=True):
         tmin_stf, tmax_stf = self.tminmax_stf(tref)
         tmin = round(tmin_stf/deltat) * deltat
         tmax = round(tmax_stf/deltat) * deltat
@@ -264,10 +285,8 @@ class StepResponseSTF(BaseSTF):
             omega_t = (t_edges - tmin_stf) * self.damping_factor
             amplitudes = 1. - (1. + omega_t) * np.exp(-1.*omega_t)
 
-            # Normalized M(t) -> its maximum amplitude == deltat
-            # (in `pyrocko.gf.seismoseizer`, the convolution output in
-            # post-processing step is not multiplied by deltat)
-            amplitudes *= (deltat / np.max(amplitudes))
+            if normalise:
+                amplitudes *= (deltat / amplitudes.max())
         else:
             amplitudes = np.ones(1)
 
@@ -276,10 +295,10 @@ class StepResponseSTF(BaseSTF):
 
 class ImpulseResponseSTF(BaseSTF):
     """
-    Impulse-response solution of a critically damped 2nd order mechanical
-    system (with static friction and a dynamic friction proportional to slip
-    velocity) for far-field displacement source-time function (
-    dislocation-rate history).
+    Impulse-response solution of a critically damped second order
+    mechanical system (with static friction and a dynamic friction
+    proportional to slip velocity) for far-field displacement STF
+    (dislocation-rate history).
 
     References
     ----------
@@ -293,7 +312,7 @@ class ImpulseResponseSTF(BaseSTF):
              "source-time function. It a positive integer. The larger this "
              "parameter the narrower the pulse.")
 
-    def discretize_t(self, deltat, tref):
+    def discretize_t(self, deltat, tref, normalise=True):
         tmin_stf, tmax_stf = self.tminmax_stf(tref)
         tmin = round(tmin_stf/deltat) * deltat
         tmax = round(tmax_stf/deltat) * deltat
@@ -305,10 +324,8 @@ class ImpulseResponseSTF(BaseSTF):
             omega_t = (t_edges - tmin_stf) * self.damping_factor
             amplitudes = self.damping_factor * omega_t * np.exp(-1.*omega_t)
 
-            # Normalized dM(t)/dt -> its numerical integration == deltat
-            # (in `pyrocko.gf.seismoseizer`, the convolution output in
-            # post-processing step is not multiplied by deltat)
-            amplitudes /= np.sum(amplitudes)
+            if normalise:
+                amplitudes /= np.sum(amplitudes)
         else:
             amplitudes = np.ones(1)
 

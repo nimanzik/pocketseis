@@ -7,6 +7,8 @@ from torch.nn.functional import conv2d
 import torch
 from xarray import Dataset
 
+from pocketseis.minimum_1d import HIFullMaterial
+from pocketseis.source import SmoothRampSTF, GaussianSTF, ZeroCrossingSTF
 from pocketseis.util import column_stack_3d, time_to_index, time_range
 
 
@@ -451,30 +453,6 @@ def convolve_stf(tp, ts, stf_amps, deltat, total_len):
         constant_values=(0.0, convy[-1]))
 
 
-class HIFullMaterial(Object):
-    """
-    Elastic properties of a homogeneous, isotropic, unbounded
-    (full-space) medium.
-    Default `vs` value is 5800 m/s (standard crustal value) and vs is
-    then set accordingly for a Poisson solid (ν=0.25).
-    """
-    vp = Float.T(default=5800.0, help='P-wave velocity. Unit: [m/s]')
-    vs = Float.T(default=3348.0, help='S-wave velocity. Unit: [m/s]')
-    rho = Float.T(default=2600.0, help='Density. Unit: [kg/m^3]')
-
-    def lame(self):
-        """
-        Lame constants.
-
-        Returns
-        -------
-        2-tuple of (λ, μ)
-        """
-        μ = self.vs**2 * self.rho
-        λ = self.vp**2 * self.rho - (2.0 * μ)
-        return (λ, μ)
-
-
 class HIFullScenario(Object):
     """
     Base class for forward modelling scenario for homogeneous,
@@ -556,7 +534,7 @@ class StrainHIFullScenario(HIFullScenario):
     """
 
     def process(
-            self, source, cable, far=True, intermediate_far=True,
+            self, source, cable, stf_duration, far=True, intermediate_far=True,
             intermediate_near=True, near=True):
         """
         Parameters
@@ -568,6 +546,8 @@ class StrainHIFullScenario(HIFullScenario):
         cable :
             DAS cable. Grid spacing must be set before passing it to
             this method.
+        stf_duration : flot
+            Source-time function duration in [s].
 
         Returns
         -------
@@ -602,16 +582,17 @@ class StrainHIFullScenario(HIFullScenario):
 
         # Time-dependent seismic moment, M(t). It should be normalised
         # to one, otherwise the source magnitude becomes meaningless.
-        _, D = source.stf.discretize_t(self.deltat, 0.0)
-        if D.size > 1:
-            D /= self.deltat
+        stf_ramp = SmoothRampSTF(duration=stf_duration, anchor=-1.0)
+        _, D = stf_ramp.discretize_t(self.deltat, 0.0, normalise=False)
         assert D.max() == 1.0, 'Seismic moment STF should be normalized to 1'
 
         # Seismic moment-rate, dM(t)/dt
-        Ddot = np.gradient(D, self.deltat)
+        stf_gaus = GaussianSTF(duration=stf_duration, anchor=-1.0)
+        _, Ddot = stf_gaus.discretize_t(self.deltat, 0.0, normalise=False)
 
         # Time-derivative of the moment rate, d²M(t)/dt²
-        Dddot = np.gradient(Ddot, self.deltat)
+        stf_zcros = ZeroCrossingSTF(duration=stf_duration, anchor=-1.0)
+        _, Dddot = stf_zcros.discretize_t(self.deltat, 0.0, normalise=False)
 
         # P- and S-wave travel times (flattened arrays)
         tp_all, ts_all = self._calc_ptimes_stimes(dists_3d=dists_3d)
@@ -752,7 +733,8 @@ class DisplacementHIFullScenario(HIFullScenario):
     """
 
     def process(
-            self, source, receivers, far=True, intermediate=True, near=True):
+            self, source, receivers, stf_duration,
+            far=True, intermediate=True, near=True):
         """
         Parameters
         ----------
@@ -762,6 +744,8 @@ class DisplacementHIFullScenario(HIFullScenario):
             :py:class:`pyrocko.MomentTensor` object.
         receivers : list of :py:class:`pyrocko.model.Station` objects
             Seismic sensors.
+        stf_duration : float
+            Source-time function duration in [s].
 
         Returns
         -------
@@ -799,13 +783,13 @@ class DisplacementHIFullScenario(HIFullScenario):
 
         # Time-dependent seismic moment, M(t). It should be normalised
         # to one, otherwise the source magnitude becomes meaningless.
-        _, D = source.stf.discretize_t(self.deltat, 0.0)
-        if D.size > 1:
-            D /= self.deltat
+        stf_ramp = SmoothRampSTF(duration=stf_duration, anchor=-1.0)
+        _, D = stf_ramp.discretize_t(self.deltat, 0.0, normalise=False)
         assert D.max() == 1.0, 'Seismic moment STF should be normalized to 1'
 
         # Seismic moment-rate, dM(t)/dt
-        Ddot = np.gradient(D, self.deltat)
+        stf_gaus = GaussianSTF(duration=stf_duration, anchor=-1.0)
+        _, Ddot = stf_gaus.discretize_t(self.deltat, 0.0, normalise=False)
 
         # P- and S-wave travel times (flattened arrays)
         tp_all, ts_all = self._calc_ptimes_stimes(dists_3d=dists_3d)

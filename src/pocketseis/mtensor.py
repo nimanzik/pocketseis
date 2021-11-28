@@ -281,7 +281,7 @@ def random_mt(n_src=1, method='S5', seed=None):
     # Method 2 of section 9 of Tape & Tape (2015, GJI)
     else:
         # Differ the import of MTQTSource to avoid circular import
-        from pocketseis.point_source import MTQTSource
+        from pocketseis.source import MTQTSource
 
         us = rng.uniform(low=0.0, high=0.75 * np.pi, size=n_src)
         vs = rng.uniform(low=-1.0 / 3.0, high=1.0 / 3.0, size=n_src)
