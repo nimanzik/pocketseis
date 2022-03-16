@@ -8,11 +8,11 @@ from pocketseis import source as ps
 from pocketseis.mtensor import tuple6_to_symmat
 
 
-class PointSourceModelTestCase(unittest.TestCase):
+class SourceTestCase(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.deltat = 0.01
+        cls.deltat = 0.004
         cls.tref = 10.2
         cls.durations = [factor * cls.deltat for factor in (10, 20, 41, 164)]
         cls.assert_allclose = partial(
@@ -20,7 +20,7 @@ class PointSourceModelTestCase(unittest.TestCase):
 
     def test_stf_smooth_ramp(self):
 
-        stf = ps.SmoothRampSTF(duration=1*self.deltat)
+        stf = ps.SmoothRampSTF(duration=1 * self.deltat)
         t, a = stf.discretize_t(deltat=self.deltat, tref=self.tref)
         self.assertEqual(a.max(), self.deltat)
         self.assert_allclose(
@@ -48,8 +48,9 @@ class PointSourceModelTestCase(unittest.TestCase):
             stf = ps.ZeroCrossingSTF(duration=duration, anchor=0.0)
             t, a = stf.discretize_t(deltat=self.deltat, tref=self.tref)
             self.assert_allclose(simps(a, x=t), 0.0)
-            self.assert_allclose(
-                simps(cumtrapz(a, x=t, initial=0.0), x=t), self.deltat)
+            np.testing.assert_array_less(
+                simps(cumtrapz(a, x=t, initial=0.0), x=t),
+                self.deltat)
 
     def test_source_mtqt(self):
         # Following sample calculation of uniform moment tensor

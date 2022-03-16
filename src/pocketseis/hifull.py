@@ -500,9 +500,9 @@ class HIFullScenario(Object):
             raise ValueError(
                 "'quantity' must be either 'displacement' or 'strain'")
 
-    def _calc_ptimes_stimes(self, dists_3d):
+    def _calc_ptimes(self, dists_3d):
         """
-        P- and S-wave travel times.
+        P-wave travel times.
 
         Parameters
         ----------
@@ -511,12 +511,26 @@ class HIFullScenario(Object):
 
         Returns
         -------
-        tp_all, ts_all : tuple of 2 ndarrays of shape (n_receivers,)
-            P- and S-wave travel-times.
+        tp_all : ndarrays of shape (n_receivers,)
+            P-wave travel-times.
         """
-        tp_all = dists_3d * self._recips['1/α']
-        ts_all = dists_3d * self._recips['1/β']
-        return (tp_all, ts_all)
+        return dists_3d * self._recips['1/α']
+
+    def _calc_stimes(self, dists_3d):
+        """
+        S-wave travel times.
+
+        Parameters
+        ----------
+        dists_3d : ndarray of shape (n_receivers,)
+            3-D distances of observation points from event. Unit: [m]
+
+        Returns
+        -------
+        ts_all : ndarrays of shape (n_receivers,)
+            S-wave travel-times.
+        """
+        return dists_3d * self._recips['1/β']
 
 
 class StrainHIFullScenario(HIFullScenario):
@@ -595,7 +609,8 @@ class StrainHIFullScenario(HIFullScenario):
         _, Dddot = stf_zcros.discretize_t(self.deltat, 0.0, normalise=False)
 
         # P- and S-wave travel times (flattened arrays)
-        tp_all, ts_all = self._calc_ptimes_stimes(dists_3d=dists_3d)
+        tp_all = self._calc_ptimes(dists_3d=dists_3d)
+        ts_all = self._calc_stimes(dists_3d=dists_3d)
 
         # Number of time samples (longest waveform)
         ts_max = ts_all.max()
@@ -792,7 +807,8 @@ class DisplacementHIFullScenario(HIFullScenario):
         _, Ddot = stf_gaus.discretize_t(self.deltat, 0.0, normalise=False)
 
         # P- and S-wave travel times (flattened arrays)
-        tp_all, ts_all = self._calc_ptimes_stimes(dists_3d=dists_3d)
+        tp_all = self._calc_ptimes(dists_3d=dists_3d)
+        ts_all = self._calc_stimes(dists_3d=dists_3d)
 
         # Number of time samples (longest waveform)
         ts_max = ts_all.max()
