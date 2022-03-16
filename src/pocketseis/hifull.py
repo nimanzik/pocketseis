@@ -597,16 +597,16 @@ class StrainHIFullScenario(HIFullScenario):
         # Time-dependent seismic moment, M(t). It should be normalised
         # to one, otherwise the source magnitude becomes meaningless.
         stf_ramp = SmoothRampSTF(duration=stf_duration, anchor=-1.0)
-        _, D = stf_ramp.discretize_t(self.deltat, 0.0, normalise=False)
+        _, D = stf_ramp.discretize_t(self.deltat, 0.0, scale=False)
         assert D.max() == 1.0, 'Seismic moment STF should be normalized to 1'
 
         # Seismic moment-rate, dM(t)/dt
         stf_gaus = GaussianSTF(duration=stf_duration, anchor=-1.0)
-        _, Ddot = stf_gaus.discretize_t(self.deltat, 0.0, normalise=False)
+        _, Ddot = stf_gaus.discretize_t(self.deltat, 0.0, scale=False)
 
         # Time-derivative of the moment rate, d²M(t)/dt²
         stf_zcros = ZeroCrossingSTF(duration=stf_duration, anchor=-1.0)
-        _, Dddot = stf_zcros.discretize_t(self.deltat, 0.0, normalise=False)
+        _, Dddot = stf_zcros.discretize_t(self.deltat, 0.0, scale=False)
 
         # P- and S-wave travel times (flattened arrays)
         tp_all = self._calc_ptimes(dists_3d=dists_3d)
@@ -799,12 +799,12 @@ class DisplacementHIFullScenario(HIFullScenario):
         # Time-dependent seismic moment, M(t). It should be normalised
         # to one, otherwise the source magnitude becomes meaningless.
         stf_ramp = SmoothRampSTF(duration=stf_duration, anchor=-1.0)
-        _, D = stf_ramp.discretize_t(self.deltat, 0.0, normalise=False)
+        _, D = stf_ramp.discretize_t(self.deltat, 0.0, scale=False)
         assert D.max() == 1.0, 'Seismic moment STF should be normalized to 1'
 
         # Seismic moment-rate, dM(t)/dt
         stf_gaus = GaussianSTF(duration=stf_duration, anchor=-1.0)
-        _, Ddot = stf_gaus.discretize_t(self.deltat, 0.0, normalise=False)
+        _, Ddot = stf_gaus.discretize_t(self.deltat, 0.0, scale=False)
 
         # P- and S-wave travel times (flattened arrays)
         tp_all = self._calc_ptimes(dists_3d=dists_3d)
