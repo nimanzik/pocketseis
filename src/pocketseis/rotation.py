@@ -89,7 +89,7 @@ References
 import numpy as np
 
 
-def rotmat_cartesian(theta, axis):
+def cartesian_rotmat(theta, axis):
     """
     Elemental rotation through angle `theta` about `axis`-axis of a
     Cartesian coordinate system.
@@ -165,20 +165,20 @@ def rotate_mt(m, from_to):
     from_to = from_to.upper()
 
     if from_to == 'NED->NWU':
-        rotmat = rotmat_cartesian(np.pi, 'x')
+        rotmat = cartesian_rotmat(np.pi, 'x')
 
     elif from_to == 'NWU->NED':
-        rotmat = rotmat_cartesian(-np.pi, 'x')
+        rotmat = cartesian_rotmat(-np.pi, 'x')
 
     elif from_to == 'NED->ENU':
-        rotmat1 = rotmat_cartesian(np.pi, 'x')
-        rotmat2 = rotmat_cartesian(-np.pi / 2.0, 'z')
-        rotmat = np.dot(rotmat1, rotmat2)
+        rotmat1 = cartesian_rotmat(np.pi, 'x')
+        rotmat2 = cartesian_rotmat(-np.pi / 2.0, 'z')
+        rotmat = rotmat1 @ rotmat2
 
     elif from_to == 'ENU->NED':
-        rotmat1 = rotmat_cartesian(np.pi / 2.0, 'z')
-        rotmat2 = rotmat_cartesian(-np.pi, 'x')
-        rotmat = np.dot(rotmat1, rotmat2)
+        rotmat1 = cartesian_rotmat(np.pi / 2.0, 'z')
+        rotmat2 = cartesian_rotmat(-np.pi, 'x')
+        rotmat = rotmat1 @ rotmat2
 
     else:
         raise ValueError(f"Conversion is not supported: {from_to}")
@@ -186,7 +186,7 @@ def rotate_mt(m, from_to):
     return (rotmat.T @ m @ rotmat)
 
 
-def rotmat_ne2rt(bazi):
+def ne2rt_rotmat(bazi):
     """
     2-D rotation matrix of horizontal components of a seismogram.
 
@@ -232,7 +232,7 @@ def rotmat_ne2rt(bazi):
     return np.squeeze(rotmat_2d)
 
 
-def rotmat_zne2lqt(bazi, incid):
+def zne2lqt_rotmat(bazi, incid):
     """
     3-D rotation of all three components of a seismogram from ``ZNE``
     (Vertical, North, East; left-handed) system into ``LQT`` (P-wave
@@ -255,7 +255,7 @@ def rotmat_zne2lqt(bazi, incid):
 
     Returns
     -------
-    rmat_3d : ndarray, shape (3, 3) or (n, 3, 3) where n >= 2
+    rotmat_3d : ndarray, shape (3, 3) or (n, 3, 3) where n >= 2
         Rotation matrix.
 
     Notes
@@ -265,7 +265,7 @@ def rotmat_zne2lqt(bazi, incid):
 
     To rotate from ``ZNE`` to ``LQT``, one should use::
 
-        ``np.matmul(rmat_3d.T, zne)``
+        ``np.matmul(rotmat_3d.T, zne)``
 
     where ``zne`` is an ndarray of shape ``(3, n_samples)``, whose rows are
     ``Z``, ``N`` and ``E`` components of the seismogram, respectively.
@@ -289,8 +289,8 @@ def rotmat_zne2lqt(bazi, incid):
 
 
 __all__ = """
-    rotmat_cartesian
+    cartesian_rotmat
     rotate_mt
-    rotmat_ne2rt
-    rotmat_zne2lqt
+    ne2rt_rotmat
+    zne2lqt_rotmat
 """.split()

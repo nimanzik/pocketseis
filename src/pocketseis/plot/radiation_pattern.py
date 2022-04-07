@@ -202,8 +202,7 @@ def plot_radiation_pattern(
     def maxabs_scale(a):
         return a / np.max(np.abs(a))
 
-    # Negative shear motion (rotation) is meaningless for
-    # illustration purpose
+    # Negative shear motion (rotation) is meaningless for illustration purpose
     mags = maxabs_scale(np.sqrt(R**2))
 
     if wave_type == 'P':

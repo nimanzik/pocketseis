@@ -234,7 +234,7 @@ class SurfaceDASCable(Object):
             *event.effective_latlon, event.depth, lats, lons, depths)
 
 
-def calc_radiation_pattern_factors(
+def calc_radiation_patterns(
         mt_symmat, dircos_vecs, quantity, far=True, intermediate=True,
         near=True, intermediate_far=True, intermediate_near=True):
     """
@@ -589,7 +589,7 @@ class StrainHIFullScenario(HIFullScenario):
 
         # Radiation-pattern factors
         mt_symmat = np.asarray(source.pyrocko_moment_tensor().m())
-        xset = calc_radiation_pattern_factors(
+        xset = calc_radiation_patterns(
             mt_symmat, dircos_vecs, quantity='strain',
             far=far, intermediate_far=intermediate_far,
             intermediate_near=intermediate_near, near=near)
@@ -792,7 +792,7 @@ class DisplacementHIFullScenario(HIFullScenario):
 
         # Radiation-pattern factors
         mt_symmat = np.asarray(source.pyrocko_moment_tensor().m())
-        xset = calc_radiation_pattern_factors(
+        xset = calc_radiation_patterns(
             mt_symmat, dircos_vecs, quantity='displacement',
             far=far, intermediate=intermediate, near=near)
 

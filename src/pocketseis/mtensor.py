@@ -285,15 +285,14 @@ def random_mt(n_src=1, method='S5', seed=None):
 
         us = rng.uniform(low=0.0, high=0.75 * np.pi, size=n_src)
         vs = rng.uniform(low=-1.0 / 3.0, high=1.0 / 3.0, size=n_src)
-        kappas = rng.uniform(low=0.0, high=2.0 * np.pi, size=n_src)
-        sigmas = rng.uniform(low=-np.pi / 2.0, high=np.pi / 2.0, size=n_src)
+        κs = rng.uniform(low=0.0, high=2.0 * np.pi, size=n_src)
+        σs = rng.uniform(low=-np.pi / 2.0, high=np.pi / 2.0, size=n_src)
         hs = rng.uniform(low=0.0, high=1.0, size=n_src)
 
         mt_list = []
-        for (u, v, kappa, sigma, h) in zip(us, vs, kappas, sigmas, hs):
-            m = np.asmatrix(
-                MTQTSource(u=u, v=v, kappa=kappa, sigma=sigma, h=h).m9_ned)
-            mt_list.append(pmt.MomentTensor(m=m))
+        for (u, v, κ, σ, h) in zip(us, vs, κs, σs, hs):
+            m = MTQTSource(u=u, v=v, kappa=κ, sigma=σ, h=h).m9_ned
+            mt_list.append(pmt.MomentTensor(m=np.asmatrix(m)))
 
     return mt_list
 

@@ -6,7 +6,7 @@ Matlab scripts in ZMAP package.
 import numpy as np
 
 
-def calculate_abs_fmd(mags, bin_size=0.1):
+def calc_abs_fmd(mags, bin_size=0.1):
     """
     Calculates absolute frequency-magnitude distribution (Abs. FMD).
 
@@ -32,7 +32,7 @@ def calculate_abs_fmd(mags, bin_size=0.1):
     return (freqs, centers)
 
 
-def calculate_cum_fmd(abs_fmd):
+def calc_cum_fmd(abs_fmd):
     """
     Calculate cumulative frequency-magnitude distribution (Cum. FMD).
 
@@ -40,7 +40,7 @@ def calculate_cum_fmd(abs_fmd):
     ----------
     abs_fmd : ndarray
         Absotute frequencies of magnitudes returned by
-        `~calculate_abs_fmd` method.
+        `~calc_abs_fmd` method.
 
     Returns
     -------
@@ -50,7 +50,7 @@ def calculate_cum_fmd(abs_fmd):
     return np.cumsum(abs_fmd[::-1])[::-1]
 
 
-def calculate_mc(mags, bin_size=0.1, correction=0.2):
+def calc_mc(mags, bin_size=0.1, correction=0.2):
     """
     Calculate magnitude of completeness (cutoff magnitude) using maximum
     curvature method (Wiemer & Wyss, 2000).
@@ -82,7 +82,7 @@ def calculate_mc(mags, bin_size=0.1, correction=0.2):
     """
 
     mags = np.asarray(mags)
-    freqs, centers = calculate_abs_fmd(mags, bin_size)
+    freqs, centers = calc_abs_fmd(mags, bin_size)
     mc = centers[np.argmax(freqs)]   # Maximum Curvature method
     mc = round((mc + correction) / bin_size) * bin_size
     return mc

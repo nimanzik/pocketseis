@@ -7,8 +7,7 @@ from .mpl_util import transform_data2axes, sci_tickformatter
 from .colors import darken_color
 from pocketseis.mtensor import magnitude_to_moment
 from pocketseis.util import round_day
-from pocketseis.zmap import calculate_abs_fmd, calculate_cum_fmd, \
-    gutenberg_richter
+from pocketseis.zmap import calc_abs_fmd, calc_cum_fmd, gutenberg_richter
 
 
 KM2M = 1.0e+3
@@ -119,25 +118,28 @@ def plot_fmd(ax, mags, mc, b_val, a_val, bin_size=0.1, axis_label='both',
     c3 = '#777777'
 
     mags = np.asarray(mags)
-    abs_freqs, centers = calculate_abs_fmd(mags, bin_size)
-    cum_freqs = calculate_cum_fmd(abs_freqs)
+    abs_freqs, centers = calc_abs_fmd(mags, bin_size)
+    cum_freqs = calc_cum_fmd(abs_freqs)
 
-    # === Cumulative FMD ===
-    p1 = ax.plot(centers, np.log10(cum_freqs),
-                 'o', mec=c1, label='Cum. FMD', **marker_kw)
+    # Cumulative FMD
+    p1 = ax.plot(
+        centers, np.log10(cum_freqs),
+        'o', mec=c1, label='Cum. FMD', **marker_kw)
 
-    # === Absolute FMD ===
+    # Absolute FMD
     indxs = np.where(abs_freqs != 0.0)
-    p2 = ax.plot(centers[indxs], np.log10(abs_freqs[indxs]),
-                 'D', mec=c2, label='Abs. FMD', **marker_kw)
+    p2 = ax.plot(
+        centers[indxs], np.log10(abs_freqs[indxs]),
+        'D', mec=c2, label='Abs. FMD', **marker_kw)
 
-    # === Fitted GR model ===
+    # Fitted GR model
     bot, top = ax.get_ylim()
-    ax.plot(centers, np.log10(gutenberg_richter(centers, b_val, a_val)),
-            'k--', lw=2, alpha=0.8)
+    ax.plot(
+        centers, np.log10(gutenberg_richter(centers, b_val, a_val)),
+        'k--', lw=2, alpha=0.8)
     ax.set_ylim(bot, top)
 
-    # === Add axis label(s) if required ===
+    # Add axis label(s) if required
     if axis_label:
         xlabel = 'Magnitude'
         ylabel = r'log$_{10} N$, $N=\#$ of events'
@@ -148,14 +150,14 @@ def plot_fmd(ax, mags, mc, b_val, a_val, bin_size=0.1, axis_label='both',
         elif axis_label == 'y':
             ax.set(ylabel=ylabel)
 
-    # === Add legend if required ===
+    # Add legend if required
     if legend:
         handles = p1 + p2
         labels = [p.get_label() for p in handles]
         ax.legend(
             handles, labels, handlelength=1, handletextpad=0.5, borderpad=0.25)
 
-    # === Add Mc indicator symbol if required ===
+    # Add Mc indicator symbol if required
     if mc_indicator:
         x_symb, _ = transform_data2axes(ax, (mc, 0.))
         ax.plot(x_symb, 0.96, 'v', color=c3, ms=7, transform=ax.transAxes)
@@ -198,9 +200,10 @@ def plot_catalog_timehist(ax, times, deltat_days=1, hist_kwargs=None):
     """
     deltat = deltat_days * (24 * 3600)
     times = np.asarray(times)
-    bins = np.arange(round_day(times.min()),
-                     round_day(times.max(), ceiling=True) + deltat,
-                     deltat)
+    bins = np.arange(
+        round_day(times.min()),
+        round_day(times.max(), ceiling=True) + deltat,
+        deltat)
 
     hist_kw = dict(align='mid', fc='#ccb974', ec='dimgray')
     if hist_kwargs is not None:
@@ -241,7 +244,7 @@ def plot_mags_timeline(ax, mags, times, cmap=None, scatter_kwargs=None):
 
     ax.scatter(times, mags, **scat_kw)
 
-    # ## Cumulative seismic moment
+    # Cumulative seismic moment
     moments_cum = np.cumsum(magnitude_to_moment(mags))
     ax2 = ax.twinx()
     ax2.plot(times, moments_cum, 'k', alpha=0.8)

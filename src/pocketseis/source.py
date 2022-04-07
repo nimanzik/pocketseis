@@ -144,9 +144,8 @@ class GaussianSTF(BaseSTF):
             omega_t = omega * (t_edges - tmin_stf)
 
             # Bruestle & Mueller (1983) model
-            amplitudes = (9.0 / 16.0) * (
-                (omega / 3.0)
-                * ((3.0 * np.sin(omega_t)) - np.sin(3.0 * omega_t)))
+            amplitudes = (9.0 / 16.0) * (omega / 3.0) * (
+                3.0 * np.sin(omega_t) - np.sin(3.0 * omega_t))
 
             if scale:
                 amplitudes /= np.sum(amplitudes)
@@ -189,8 +188,8 @@ class ZeroCrossingSTF(BaseSTF):
             omega_t = (t_edges-tmin_stf) * omega
 
             # Bruestle & Mueller (1983) model
-            amplitudes = (9.0 / 16.0) * (
-                omega**2 * (np.cos(omega_t) - np.cos(3.0 * omega_t)))
+            amplitudes = (9.0 / 16.0) * omega**2 * (
+                np.cos(omega_t) - np.cos(3.0 * omega_t))
 
             if scale:
                 amplitudes *= deltat
