@@ -39,12 +39,12 @@ def _get_relative_data(lat0, lon0, depth0, lats, lons, depths):
 
 
 class SurfaceDASCable(Object):
-    nominal_zerooffset_loc = pmodel.Location.T(
+    nominal_refloc = pmodel.Location.T(
         default=pmodel.Location(lat=0.0, lon=0.0),
-        help='Geographycal location of first channel')
-    nominal_length = Float.T(
+        help='Geographycal location of the first channel')
+    nominal_len = Float.T(
         default=1000.0,
-        help='Cable length. Unit: [m]')
+        help='Cable length between the first and last channels. Unit: [m]')
     azimuth = Float.T(
         default=0.0,
         help='Azimuth measured clockwise from the North(=x) and is '
@@ -67,8 +67,8 @@ class SurfaceDASCable(Object):
         (self.channel_locs,
             self._channel_lats,
             self._channel_lons) = self._get_channel_locs_lats_lons()
-        self._real_length = None
-        self._real_zerooffset_loc = None
+        self._effective_len = None
+        self._effective_refloc = None
         self._grid_spacing = None
         self._n_grids = None
         self._grid_locs = None
@@ -82,7 +82,7 @@ class SurfaceDASCable(Object):
         n : int
             Number of channels.
         """
-        return int(round(self.nominal_length / self.channel_spacing)) + 1
+        return int(round(self.nominal_len / self.channel_spacing)) + 1
 
     def _get_channel_locs_lats_lons(self):
         """
@@ -96,13 +96,12 @@ class SurfaceDASCable(Object):
             1 -> ndarray of channel latitudes
             2 -> ndarray of channel longitudes
         """
-        cha_offsets = np.linspace(
-            0.0, self.nominal_length, self.n_channels)
+        cha_offsets = np.linspace(0.0, self.nominal_len, self.n_channels)
 
         # Channel lats & lons, 2-tuple with arrays of shape (n_channels,)
         cha_lats, cha_lons = pod.azidist_to_latlon(
-            self.nominal_zerooffset_loc.effective_lat,
-            self.nominal_zerooffset_loc.effective_lon,
+            self.nominal_refloc.effective_lat,
+            self.nominal_refloc.effective_lon,
             np.ones(self.n_channels) * self.azimuth,
             cha_offsets * pod.m2d)
 
@@ -113,48 +112,48 @@ class SurfaceDASCable(Object):
         return (cha_locs, cha_lats, cha_lons)
 
     @property
-    def real_length(self):
+    def effective_len(self):
         """
-        Cable total length in m, from x=(first_channel - GL/2) to
-        x=(last_channel + GL/2), where GL is the gauge length.
+        Effective length in m, from `xi=(first_channel - GL/2)` to
+        `xf =(last_channel + GL/2)`, where `GL` is the gauge length.
 
         Returns
         -------
         float
         """
-        if self._real_length is None:
-            self._real_length = self.nominal_length + self.gauge_length
-        return self._real_length
+        if self._effective_len is None:
+            self._effective_len = self.nominal_len + self.gauge_length
+        return self._effective_len
 
     @property
-    def real_zerooffset_loc(self):
+    def effective_refloc(self):
         """
-        Geographical location of point x=(first_channel - GL/2), where
-        GL is the gauge length.
+        Geographical location of point `x=(first_channel - GL/2)`, where
+        `GL` is the gauge length.
 
         Returns
         -------
         :py:class:`pyrocko.model.Location` object
         """
-        if self._real_zerooffset_loc is None:
+        if self._effective_refloc is None:
             lat0, lon0 = pod.azidist_to_latlon(
-                self.nominal_zerooffset_loc.effective_lat,
-                self.nominal_zerooffset_loc.effective_lon,
+                self.nominal_refloc.effective_lat,
+                self.nominal_refloc.effective_lon,
                 self.azimuth + 180.0,
                 self.gauge_length / 2.0 * pod.m2d)
 
-            self._real_zerooffset_loc = pmodel.Location(lat=lat0, lon=lon0)
+            self._effective_refloc = pmodel.Location(lat=lat0, lon=lon0)
 
-        return self._real_zerooffset_loc
+        return self._effective_refloc
 
     def _get_grid_locs_lats_lons(self, grid_spacing):
-        n_grids = int(round(self.real_length / grid_spacing)) + 1
-        grid_offsets = np.linspace(0.0, self.real_length, n_grids)
+        n_grids = int(round(self.effective_len / grid_spacing)) + 1
+        grid_offsets = np.linspace(0.0, self.effective_len, n_grids)
 
         # Grid-point lats & lons, 2-tuple with arrays of shape (n_grids,)
         grid_lats, grid_lons = pod.azidist_to_latlon(
-            self.real_zerooffset_loc.effective_lat,
-            self.real_zerooffset_loc.effective_lon,
+            self.effective_refloc.effective_lat,
+            self.effective_refloc.effective_lon,
             np.ones(n_grids) * self.azimuth,
             grid_offsets * pod.m2d)
 
@@ -167,13 +166,20 @@ class SurfaceDASCable(Object):
     @property
     def grid_spacing(self):
         """
-        Grid spacing that is used to discretise the gauge length in
-        order to calculate point strains.
+        Get grid spacing in [m] that is used for discretising the gauge
+        length to calculate point strains.
         """
         return self._grid_spacing
 
-    @grid_spacing.setter
-    def grid_spacing(self, new_grid_spacing):
+    @property
+    def n_grids(self):
+        return self._n_grids
+
+    def set_grid_spacing(self, new_grid_spacing):
+        """
+        Set grid spacing in [m] that is used for discretising the gauge
+        length to calculate point strains.
+        """
         grid_locs, grid_lats, grid_lons = (
             self._get_grid_locs_lats_lons(new_grid_spacing))
         self._grid_spacing = new_grid_spacing
@@ -193,8 +199,8 @@ class SurfaceDASCable(Object):
         list of :py:class:`pyrocko.model.Location` objects
         """
         assert self._grid_spacing is not None, (
-            "cannot return grid locations when 'grid_spacing' is None. "
-            "Set a value to 'grid_spacing' first.")
+            "Cannot return grid locations when 'grid_spacing' is None. "
+            "Set a value to 'grid_spacing' first")
         return self._grid_locs
 
     def get_event_relative_data(self, event, level='channel'):
@@ -202,8 +208,8 @@ class SurfaceDASCable(Object):
         Parameters
         ----------
         event : :py:class:`pyrocko.model.Event` object
-            Seismic event. Its location is considered as reference
-            location (the origin of the Cartesian system).
+            Seismic event. Its location is considered as the origin of
+            the Cartesian system to obtain relative data.
         level : {'channel', 'grid'}
             Determines the observation points for which relative data
             are calculated.
@@ -216,8 +222,8 @@ class SurfaceDASCable(Object):
             Unit vectors of direction cosines. Relative event-receiver
             (either channels or grids) position vectors are in Cartesian
             coordinate system (i.e. vectors whose initial and terminal
-            are event and observation-point positions, respectively).
-            The indexes of the first dimension represent
+            are event and observation  points, respectively). The
+            indexes of the first dimension represent
             (0, 1, 2)->(North, East, Down) axes.
         """
         if level not in (valid_levels := ('channel', 'grid')):
@@ -229,16 +235,16 @@ class SurfaceDASCable(Object):
                 "is None. Set a value to 'grid_spacing' first.")
 
         if level == 'channel':
-            lats = self._channel_lats
-            lons = self._channel_lons
-            depths = self.depth * np.ones(self.n_channels)
+            rlats = self._channel_lats
+            rlons = self._channel_lons
+            rdepths = self.depth * np.ones(self.n_channels)
         else:
-            lats = self._grid_lats
-            lons = self._grid_lons
-            depths = self.depth * np.ones(self._n_grids)
+            rlats = self._grid_lats
+            rlons = self._grid_lons
+            rdepths = self.depth * np.ones(self._n_grids)
 
         return _get_relative_data(
-            *event.effective_latlon, event.depth, lats, lons, depths)
+            *event.effective_latlon, event.depth, rlats, rlons, rdepths)
 
 
 def calc_radiation_patterns_mt(
@@ -275,7 +281,7 @@ def calc_radiation_patterns_mt(
 
     if quantity not in ('displacement', 'strain'):
         raise ValueError(
-            f"unknown quantity: {quantity}."
+            f"unknown quantity: '{quantity}'."
             f"Choices are {{'displacement', 'strain'}}")
 
     # Dimension and coordinate names of output dataset
@@ -398,15 +404,15 @@ def calc_radiation_patterns_mt(
         return Dataset(data_vars=data_vars, coords=coords)
 
 
-def pad_stf(tphase, stf_amps, deltat, total_len):
+def pad_stf(t_phase, stf_amps, deltat, total_len):
     """
     Pad source-time function to obtain intermediate- or far-field motion
     at a fixed receiver. It is assumed that reference time is zero. This
-    means that `tphase` is phase travel-time from source to receiver.
+    means that `t_phase` is phase travel-time from source to receiver.
 
     Parameters
     ----------
-    tphase : float
+    t_phase : float
         Phase (P or S) travel-time in s. It's either `r/α` or `r/β`,
         where `r` is source-reciver 3-D distance, and `α` and `β` are
         P- and S-wave velocities, respectively.
@@ -424,7 +430,7 @@ def pad_stf(tphase, stf_amps, deltat, total_len):
     out : ndarray of shape (total_len,)
         Padded source-time function.
     """
-    before = time_to_index(tphase, deltat)
+    before = time_to_index(t_phase, deltat)
     after = total_len - (before + stf_amps.size)
 
     return np.pad(
@@ -474,9 +480,7 @@ class HIFullScenario(Object):
     isotropic, unbounded (full-space) elastic medium.
     """
     deltat = Float.T(help='Time-sampling interval. Unit: [s]')
-    material = HIFullMaterial.T(
-        default=HIFullMaterial(),
-        help='Isotropic elastic material')
+    material = HIFullMaterial.T(help='Isotropic elastic material')
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -513,7 +517,7 @@ class HIFullScenario(Object):
             self._recips['1/r5'] = pow(self._recips['1/r'], 5)
         else:
             raise ValueError(
-                f"unknown quantity: {quantity}."
+                f"unknown quantity: '{quantity}'."
                 f"Choices are {{'displacement', 'strain'}}")
 
     def _calc_ptimes(self, dists_3d):
