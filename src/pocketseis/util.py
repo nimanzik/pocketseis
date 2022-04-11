@@ -73,8 +73,10 @@ def round_day(timestamp, ceiling=False):
         Time rounded to day (UTC time zone).
     """
     dt = datetime.utcfromtimestamp(timestamp)
-    dt -= timedelta(hours=dt.hour, minutes=dt.minute, seconds=dt.second,
-                    microseconds=dt.microsecond)
+    dt -= timedelta(
+        hours=dt.hour, minutes=dt.minute, seconds=dt.second,
+        microseconds=dt.microsecond)
+
     if ceiling:
         dt += timedelta(days=1)
 
@@ -144,5 +146,7 @@ def column_stack_3d(array_2d):
 
 
 def issymmetric(a, tol=1.e-10):
-    """Check if given array/matrix is symmetric"""
+    """
+    Check if given array/matrix is symmetric.
+    """
     return np.allclose(a, a.T, atol=tol)

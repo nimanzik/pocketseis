@@ -4,6 +4,7 @@ This module contains functions and classes to manipulate color codes.
 
 import colorsys
 import os.path as op
+import pprint
 
 from matplotlib.colors import LinearSegmentedColormap
 import numpy as np
@@ -23,7 +24,8 @@ def list_sci_cmaps():
     .. [2] Crameri, F. "Geodynamic diagnostics, scientific visualization,
        and StagLab 3.0." Geodynamic Model Development 11 (2018): 2541-2562.
     """
-    return {
+    pp = pprint.PrettyPrinter(sort_dicts=False)
+    pp.pprint({
         "Sequential": [
             'batlow', 'batlowW', 'batlowK',
             'devon', 'lajolla', 'bamako',
@@ -38,7 +40,8 @@ def list_sci_cmaps():
         "Multi-sequential": [
             'oleron', 'bukavo', 'fes'],
         "Cyclic": [
-            'romaO', 'bamO', 'brocO', 'corkO', 'vikO']}
+            'romaO', 'bamO', 'brocO', 'corkO', 'vikO']
+    })
 
 
 def get_sci_cmap(name):
@@ -70,8 +73,8 @@ def get_sci_cmap(name):
 
     if not op.exists(cm_file):
         raise ValueError(
-            "Colormap '%s' is not recognized. Run function "
-            "'plot.scientific_colormaps()' to see possible values." % name)
+            f"Colormap '{name}' is not recognised. Use function "
+            f"'list_sci_cmaps()' to see possible values.")
 
     cm_data = np.loadtxt(cm_file)
     cmap = LinearSegmentedColormap.from_list(name, cm_data)
@@ -96,7 +99,6 @@ def hex2rgb(c_hex, to_gmtcolor=False):
         RGB color value in the range of 0-255. If `to_gmtcolor=True`,
         values are separated by ``/`` and returned in string format.
     """
-
     c_hex = c_hex.lstrip('#')
     n = len(c_hex)
 
@@ -149,10 +151,10 @@ def _adjust_lightness(c_rgb, factor):
     """
 
     # RGB -> HLS (hue, lightness, saturation)
-    r, g, b = [v/255. for v in c_rgb]
+    r, g, b = [v / 255.0 for v in c_rgb]
     h, l_old, s = colorsys.rgb_to_hls(r, g, b)
-    l_new = max(min(l_old*factor, 1.), 0.)
-    c_rgb_new = tuple(int(v*255.) for v in colorsys.hls_to_rgb(h, l_new, s))
+    l_new = max(min(l_old * factor, 1.0), 0.0)
+    c_rgb_new = tuple(int(v * 255.0) for v in colorsys.hls_to_rgb(h, l_new, s))
     return c_rgb_new
 
 
@@ -189,7 +191,7 @@ def lighten_color(color, factor):
         ishex = False
         c_rgb = color
 
-    color_new = _adjust_lightness(c_rgb, 1.+factor)
+    color_new = _adjust_lightness(c_rgb, 1.0 + factor)
 
     if isstr:
         if ishex:
@@ -232,7 +234,7 @@ def darken_color(color, factor):
         ishex = False
         c_rgb = color
 
-    color_new = _adjust_lightness(c_rgb, 1.-factor)
+    color_new = _adjust_lightness(c_rgb, 1.0 - factor)
 
     if isstr:
         if ishex:

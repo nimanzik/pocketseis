@@ -112,20 +112,20 @@ def cartesian_rotmat(theta, axis):
         raise ValueError(f"Valid axis values are {valid_axes}")
 
     theta = np.asarray(theta, dtype=np.float64)
-    cos_t = np.cos(theta)
-    sin_t = np.sin(theta)
+    ct = np.cos(theta)
+    st = np.sin(theta)
 
     if axis == 'x':
         rotmat = np.array([[1.0, 0.0, 0.0],
-                           [0.0, +cos_t, -sin_t],
-                           [0.0, +sin_t, +cos_t]])
+                           [0.0, +ct, -st],
+                           [0.0, +st, +ct]])
     elif axis == 'y':
-        rotmat = np.array([[+cos_t, 0.0, +sin_t],
+        rotmat = np.array([[+ct, 0.0, +st],
                            [0.0, 1.0, 0.0],
-                           [-sin_t, 0.0, cos_t]])
+                           [-st, 0.0, ct]])
     elif axis == 'z':
-        rotmat = np.array([[+cos_t, -sin_t, 0.0],
-                           [+sin_t, +cos_t, 0.0],
+        rotmat = np.array([[+ct, -st, 0.0],
+                           [+st, +ct, 0.0],
                            [0.0, 0.0, 1.0]])
     else:
         raise ValueError(f"Invalid axis value {axis}")
@@ -222,7 +222,7 @@ def ne2rt_rotmat(bazi):
     sb = np.sin(bazi)
     cb = np.cos(bazi)
 
-    rotmat_2d = np.array([[-cb, sb],
+    rotmat_2d = np.array([[-cb, +sb],
                           [-sb, -cb]])
 
     if np.ndim(rotmat_2d) == 3:
@@ -278,7 +278,7 @@ def zne2lqt_rotmat(bazi, incid):
     si = np.sin(incid)
     ci = np.cos(incid)
 
-    rotmat_3d = np.array([[ci, si, 0.],
+    rotmat_3d = np.array([[ci, si, 0.0],
                           [-si * cb, ci * cb, sb],
                           [-si * sb, ci * sb, -cb]])
     if rotmat_3d.ndim == 3:

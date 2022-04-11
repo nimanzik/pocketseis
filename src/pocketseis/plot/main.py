@@ -159,7 +159,7 @@ def plot_fmd(ax, mags, mc, b_val, a_val, bin_size=0.1, axis_label='both',
 
     # Add Mc indicator symbol if required
     if mc_indicator:
-        x_symb, _ = transform_data2axes(ax, (mc, 0.))
+        x_symb, _ = transform_data2axes(ax, (mc, 0.0))
         ax.plot(x_symb, 0.96, 'v', color=c3, ms=7, transform=ax.transAxes)
         ax.text(
             x_symb, 1.01, r'$M_c={:.2f}$'.format(mc), transform=ax.transAxes,
