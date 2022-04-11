@@ -8,6 +8,7 @@ import torch
 from xarray import Dataset
 
 from pocketseis.minimum_1d import HIFullMaterial
+from pocketseis.rotation import cartesian_rotmat
 from pocketseis.source import SmoothRampSTF, GaussianSTF, ZeroCrossingSTF
 from pocketseis.util import column_stack_3d, time_to_index, time_range
 
@@ -39,19 +40,25 @@ def _get_relative_data(lat0, lon0, depth0, lats, lons, depths):
 
 class SurfaceDASCable(Object):
     nominal_zerooffset_loc = pmodel.Location.T(
+        default=pmodel.Location(lat=0.0, lon=0.0),
         help='Geographycal location of first channel')
     nominal_length = Float.T(
+        default=1000.0,
         help='Cable length. Unit: [m]')
     azimuth = Float.T(
+        default=0.0,
         help='Azimuth measured clockwise from the North(=x) and is '
              'defined as the angle between vector pointing from the '
              'interrogator to the North and the vector pointing from '
              'the interrogator to the other end of the cable. Unit: [deg]')
     depth = Float.T(
+        default=0.0,
         help='Cable depth below surface (positive downward). Unit: [m]')
     channel_spacing = Float.T(
+        default=1.0,
         help='Channel spacing. Unit: [m]')
     gauge_length = Float.T(
+        default=10.0,
         help='Gauge length. Unit: [m]')
 
     def __init__(self, **kwargs):
@@ -234,14 +241,17 @@ class SurfaceDASCable(Object):
             *event.effective_latlon, event.depth, lats, lons, depths)
 
 
-def calc_radiation_patterns(
+def calc_radiation_patterns_mt(
         mt_symmat, dircos_vecs, quantity, far=True, intermediate=True,
         near=True, intermediate_far=True, intermediate_near=True):
     """
+    Radiation patterns of displacement field or *normal* strain field
+    (εᵢᵢ; i∈{x, y, z}) from a moment-tensor point source.
+
     Parameters
     ----------
     mt_symmat : ndarray of shape (3, 3)
-        Seismic moment tensor as a plain **symmetric** matrix.
+        Seismic moment tensor as a plain *symmetric* matrix.
     dircos_vecs : ndarray of shape (3, n_receivers)
         Unit vectors of direction cosines.
     quantity : {'displacement', 'strain'}
@@ -263,6 +273,11 @@ def calc_radiation_patterns(
         respectively).
     """
 
+    if quantity not in ('displacement', 'strain'):
+        raise ValueError(
+            f"unknown quantity: {quantity}."
+            f"Choices are {{'displacement', 'strain'}}")
+
     # Dimension and coordinate names of output dataset
     dims = ['axis', 'i_reciever']
     coords = {'axis': ['x', 'y', 'z']}
@@ -280,7 +295,7 @@ def calc_radiation_patterns(
 
     q1 = M @ Γ
     k1 = ΓT @ q1   # shape of (n_rec, 1, 1)
-    k2 = np.trace(M)
+    k2 = M.trace()
     q2 = k1 * Γ
     q3 = k2 * Γ
 
@@ -498,7 +513,8 @@ class HIFullScenario(Object):
             self._recips['1/r5'] = pow(self._recips['1/r'], 5)
         else:
             raise ValueError(
-                "'quantity' must be either 'displacement' or 'strain'")
+                f"unknown quantity: {quantity}."
+                f"Choices are {{'displacement', 'strain'}}")
 
     def _calc_ptimes(self, dists_3d):
         """
@@ -540,16 +556,15 @@ class StrainHIFullScenario(HIFullScenario):
 
     Note
     ----
-    2021-10-15: Only supports surface DAS-cable (zero dip angle), for
-    which a 2-D rotation into cable axis is applied. To generalise to a
-    DAS cable with an arbitrary dip angle, rotation in 3-D should be
-    applied. For a borehole DAS cable, the z component is the desired
-    modelled strain.
+    2022-04-08: Only supports surface DAS cable (zero dip angle) and
+    borehole DAS cable (vertical dip angle). To generalise to a DAS
+    cable with an arbitrary azimuth and dip angle, two consecutive
+    rotations in 3-D should be applied.
     """
 
     def process(
-            self, source, cable, stf_duration, far=True, intermediate_far=True,
-            intermediate_near=True, near=True):
+            self, source, cable, stf_duration, far=True,
+            intermediate_far=True, intermediate_near=True, near=True):
         """
         Parameters
         ----------
@@ -584,29 +599,43 @@ class StrainHIFullScenario(HIFullScenario):
         dists_3d, dircos_vecs = \
             cable.get_event_relative_data(event, level='grid')
 
-        # Cache reciprocals of powers of 3-D distances.
+        # Cache reciprocals of powers of 3-D distances
         self._cache_dist_recips(dists_3d=dists_3d, quantity='strain')
 
-        # Radiation-pattern factors
+        # We assume that the DAS cable is oriented in the `x` direction.
+        # The axial strain along the cable can be deduced as the normal
+        # strain, `εₓₓ`. Therefore, we use a rotated coordinate system
+        # in which the cable coincides with the `x` axis.
+        if isinstance(cable, SurfaceDASCable):
+            rotmat = cartesian_rotmat(np.deg2rad(cable.azimuth), 'z')
+        else:
+            # Borehole DAS cable
+            rotmat = cartesian_rotmat(-np.pi / 2.0, 'y')
+
         mt_symmat = np.asarray(source.pyrocko_moment_tensor().m())
-        xset = calc_radiation_patterns(
-            mt_symmat, dircos_vecs, quantity='strain',
+        mt_symmat_rotated = rotmat.T @ mt_symmat @ rotmat
+
+        dircos_vecs_rotated = rotmat.T @ dircos_vecs
+
+        # Radiation-pattern factors
+        xset = calc_radiation_patterns_mt(
+            mt_symmat_rotated, dircos_vecs_rotated, quantity='strain',
             far=far, intermediate_far=intermediate_far,
             intermediate_near=intermediate_near, near=near)
 
         # Time-dependent seismic moment, M(t). It should be normalised
         # to one, otherwise the source magnitude becomes meaningless.
-        stf_ramp = SmoothRampSTF(duration=stf_duration, anchor=-1.0)
-        _, D = stf_ramp.discretize_t(self.deltat, 0.0, scale=False)
+        ramp_stf = SmoothRampSTF(duration=stf_duration, anchor=-1.0)
+        _, D = ramp_stf.discretize_t(self.deltat, 0.0, scale=False)
         assert D.max() == 1.0, 'Seismic moment STF should be normalized to 1'
 
         # Seismic moment-rate, dM(t)/dt
-        stf_gaus = GaussianSTF(duration=stf_duration, anchor=-1.0)
-        _, Ddot = stf_gaus.discretize_t(self.deltat, 0.0, scale=False)
+        gaus_stf = GaussianSTF(duration=stf_duration, anchor=-1.0)
+        _, Ddot = gaus_stf.discretize_t(self.deltat, 0.0, scale=False)
 
         # Time-derivative of the moment rate, d²M(t)/dt²
-        stf_zcros = ZeroCrossingSTF(duration=stf_duration, anchor=-1.0)
-        _, Dddot = stf_zcros.discretize_t(self.deltat, 0.0, scale=False)
+        zcros_stf = ZeroCrossingSTF(duration=stf_duration, anchor=-1.0)
+        _, Dddot = zcros_stf.discretize_t(self.deltat, 0.0, scale=False)
 
         # P- and S-wave travel times (flattened arrays)
         tp_all = self._calc_ptimes(dists_3d=dists_3d)
@@ -691,26 +720,18 @@ class StrainHIFullScenario(HIFullScenario):
         else:
             ε_n = np.zeros((n_rec, 3, data_len), dtype=np.float64)
 
-        # Important: this is only for surface DAS cable.
-        # Rotate horizontal components (N, E)=(x, y) into axial
-        # direction along the fiber and get rid of z component. Shapes
-        # will change from (n_rec, 3, data_len) to (n_rec, 1, data_len)
-        ϕ = np.deg2rad(cable.azimuth)
-        R = np.array([np.cos(ϕ), np.sin(ϕ), 0.0])[np.newaxis, :]
-        ε_f = R @ ε_f
-        ε_if = R @ ε_if
-        ε_in = R @ ε_in
-        ε_n = R @ ε_n
+        # Store only `εₓₓ`. Keep it as 3-D array
+        ε_f = ε_f[:, [0], :]
+        ε_if = ε_if[:, [0], :]
+        ε_in = ε_in[:, [0], :]
+        ε_n = ε_n[:, [0], :]
 
         # Apply moving average
-        # Reshape arrays (n_rec, 1, data_len)->(1, 1, n_rec, data_len).
-        # Concatenate along axis=0. shape(x_in)==(4, 1, n_rec, data_len)
-        taxes = (1, 0, 2)
-        x_in = np.concatenate((
-            ε_f.transpose(taxes)[np.newaxis, :, :, :],
-            ε_if.transpose(taxes)[np.newaxis, :, :, :],
-            ε_in.transpose(taxes)[np.newaxis, :, :, :],
-            ε_n.transpose(taxes)[np.newaxis, :, :, :]), axis=0)
+        # Reshape arrays (n_rec, 1, data_len)->(1, 1, n_rec, data_len)
+        # Concatenate along axis=0. x_in.shape==(4, 1, n_rec, data_len)
+        x_in = np.concatenate(
+            [e.transpose((1, 0, 2))[None, :] for e in (ε_f, ε_if, ε_in, ε_n)],
+            axis=0)
 
         # Kernel height and width
         kH = int(round(cable.gauge_length / cable.grid_spacing)) + 1
@@ -782,7 +803,7 @@ class DisplacementHIFullScenario(HIFullScenario):
           time plus STF duration (``ts+T``).
         """
         event = source.pyrocko_event()
-        a = [rec.effective_latlon + (rec.elevation,) for rec in receivers]
+        a = [rec.effective_latlon + (rec.depth,) for rec in receivers]
         rlats, rlons, rdepths = zip(*a)
         dists_3d, dircos_vecs = _get_relative_data(
             *event.effective_latlon, event.depth, rlats, rlons, rdepths)
@@ -792,19 +813,19 @@ class DisplacementHIFullScenario(HIFullScenario):
 
         # Radiation-pattern factors
         mt_symmat = np.asarray(source.pyrocko_moment_tensor().m())
-        xset = calc_radiation_patterns(
+        xset = calc_radiation_patterns_mt(
             mt_symmat, dircos_vecs, quantity='displacement',
             far=far, intermediate=intermediate, near=near)
 
         # Time-dependent seismic moment, M(t). It should be normalised
         # to one, otherwise the source magnitude becomes meaningless.
-        stf_ramp = SmoothRampSTF(duration=stf_duration, anchor=-1.0)
-        _, D = stf_ramp.discretize_t(self.deltat, 0.0, scale=False)
+        ramp_stf = SmoothRampSTF(duration=stf_duration, anchor=-1.0)
+        _, D = ramp_stf.discretize_t(self.deltat, 0.0, scale=False)
         assert D.max() == 1.0, 'Seismic moment STF should be normalized to 1'
 
         # Seismic moment-rate, dM(t)/dt
-        stf_gaus = GaussianSTF(duration=stf_duration, anchor=-1.0)
-        _, Ddot = stf_gaus.discretize_t(self.deltat, 0.0, scale=False)
+        gaus_stf = GaussianSTF(duration=stf_duration, anchor=-1.0)
+        _, Ddot = gaus_stf.discretize_t(self.deltat, 0.0, scale=False)
 
         # P- and S-wave travel times (flattened arrays)
         tp_all = self._calc_ptimes(dists_3d=dists_3d)
