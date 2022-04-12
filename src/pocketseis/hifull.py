@@ -360,13 +360,10 @@ def calc_radiation_patterns_mt(
         # Reshape arrays from (n_rec, 3, 1) to (3, n_rec) and save
         # them into a `xr.DataSet` with dims & coords defined above.
         data_vars = {
-            'FP': (dims, B_fp.squeeze(axis=2).T),
-            'FS': (dims, B_fs.squeeze(axis=2).T),
-            'IFP': (dims, B_ifp.squeeze(axis=2).T),
-            'IFS': (dims, B_ifs.squeeze(axis=2).T),
-            'INP': (dims, B_inp.squeeze(axis=2).T),
-            'INS': (dims, B_ins.squeeze(axis=2).T),
-            'N': (dims, B_n.squeeze(axis=2).T)}
+            k: (dims, v.squeeze(axis=2).T)
+            for k, v in zip(
+                ['FP', 'FS', 'IFP', 'IFS', 'INP', 'INS', 'N'],
+                [B_fp, B_fs, B_ifp, B_ifs, B_inp, B_ins, B_n])}
 
         return Dataset(data_vars=data_vars, coords=coords)
 
@@ -393,13 +390,12 @@ def calc_radiation_patterns_mt(
             A_n = np.zeros_like(Γ)
 
         # Reshape arrays from (n_rec, 3, 1) to (3, n_rec) and
-        # save them into a `xr.DataSet`.
+        # save them into a `xr.DataSet`
         data_vars = {
-            'FP': (dims, A_fp.squeeze(axis=2).T),
-            'FS': (dims, A_fs.squeeze(axis=2).T),
-            'IP': (dims, A_ip.squeeze(axis=2).T),
-            'IS': (dims, A_is.squeeze(axis=2).T),
-            'N': (dims, A_n.squeeze(axis=2).T)}
+            k: (dims, v.squeeze(axis=2).T)
+            for k, v in zip(
+                ['FP', 'FS', 'IP', 'IS', 'N'],
+                [A_fp, A_fs, A_ip, A_is, A_n])}
 
         return Dataset(data_vars=data_vars, coords=coords)
 
@@ -434,7 +430,9 @@ def pad_stf(t_phase, stf_amps, deltat, total_len):
     after = total_len - (before + stf_amps.size)
 
     return np.pad(
-        stf_amps, pad_width=(before, after), mode='constant',
+        stf_amps,
+        pad_width=(before, after),
+        mode='constant',
         constant_values=(0.0, stf_amps[-1]))
 
 
@@ -470,7 +468,9 @@ def convolve_stf(tp, ts, stf_amps, deltat, total_len):
     after = total_len - (before + convy.size)
 
     return np.pad(
-        convy, pad_width=(before, after), mode='constant',
+        convy,
+        pad_width=(before, after),
+        mode='constant',
         constant_values=(0.0, convy[-1]))
 
 
@@ -905,9 +905,9 @@ class DisplacementHIFullScenario(HIFullScenario):
             'axis': ['x', 'y', 'z'],
             'time': np.arange(data_len) * self.deltat}
         data_vars = {
-            'F': (dims, u_f),
-            'I': (dims, u_i),
-            'N': (dims, u_n),
-            'total': (dims, u_total)}
+            k: (dims, v)
+            for k, v in zip(
+                ['F', 'I', 'N', 'total'],
+                [u_f, u_i, u_n, u_total])}
 
         return Dataset(data_vars=data_vars, coords=coords)
