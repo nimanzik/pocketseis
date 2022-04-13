@@ -2,10 +2,10 @@ import numpy as np
 from scipy.signal import fftconvolve
 
 from pyrocko import model as pmodel, orthodrome as pod
-from pyrocko.guts import Object, Float
-from torch.nn.functional import conv2d
+from pyrocko.guts import Float, Object
+from torch.nn.functional import avg_pool2d
 import torch
-from xarray import Dataset
+import xarray as xr
 
 from pocketseis.minimum_1d import HIFullMaterial
 from pocketseis.rotation import cartesian_rotmat
@@ -38,53 +38,105 @@ def _get_relative_data(lat0, lon0, depth0, lats, lons, depths):
     return (dists_3d, dircos_vecs)
 
 
-class SurfaceDASCable(Object):
+class DASCable(Object):
     nominal_refloc = pmodel.Location.T(
-        default=pmodel.Location(lat=0.0, lon=0.0),
+        default=pmodel.Location(lat=0.0, lon=0.0, depth=0.0),
         help='Geographycal location of the first channel')
     nominal_len = Float.T(
         default=1000.0,
         help='Cable length between the first and last channels. Unit: [m]')
-    azimuth = Float.T(
-        default=0.0,
-        help='Azimuth measured clockwise from the North(=x) and is '
-             'defined as the angle between vector pointing from the '
-             'interrogator to the North and the vector pointing from '
-             'the interrogator to the other end of the cable. Unit: [deg]')
-    depth = Float.T(
-        default=0.0,
-        help='Cable depth below surface (positive downward). Unit: [m]')
     channel_spacing = Float.T(
         default=1.0,
         help='Channel spacing. Unit: [m]')
-    gauge_length = Float.T(
+    gauge_len = Float.T(
         default=10.0,
         help='Gauge length. Unit: [m]')
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.n_channels = self._get_n_channels()
-        (self.channel_locs,
-            self._channel_lats,
-            self._channel_lons) = self._get_channel_locs_lats_lons()
+        self._n_channels = None
         self._effective_len = None
-        self._effective_refloc = None
         self._grid_spacing = None
-        self._n_grids = None
-        self._grid_locs = None
-        self._grid_lats = None
-        self._grid_lons = None
+        self._grid_locs = []
 
-    def _get_n_channels(self):
+    @property
+    def n_channels(self):
         """
         Returns
         -------
         n : int
             Number of channels.
         """
-        return int(round(self.nominal_len / self.channel_spacing)) + 1
+        if self._n_channels is None:
+            self._n_channels = \
+                int(round(self.nominal_len / self.channel_spacing)) + 1
+        return self._n_channels
 
-    def _get_channel_locs_lats_lons(self):
+    @property
+    def effective_len(self):
+        """
+        Effective length in m, from `xi=(first_channel - GL/2)` to
+        `xf =(last_channel + GL/2)`, where `GL` is the gauge length.
+
+        Returns
+        -------
+        float
+        """
+        if self._effective_len is None:
+            self._effective_len = self.nominal_len + self.gauge_len
+        return self._effective_len
+
+    @property
+    def grid_spacing(self):
+        """
+        Get grid spacing in [m] that is used for discretising the gauge
+        length to calculate point strains.
+        """
+        return self._grid_spacing
+
+    @property
+    def grid_locs(self):
+        """
+        Geographical locations of the grid points to calculate point
+        strains. They are set when `grid_spacing` is set and stored as
+        list of :py:class:`pyrocko.model.Location` objects.
+        """
+        return self._grid_locs
+
+
+class SurfaceDASCable(DASCable):
+    azimuth = Float.T(
+        default=0.0,
+        help='Azimuth measured clockwise from the North(=x) and is '
+             'defined as the angle between vector pointing from the '
+             'interrogator to the North and the vector pointing from '
+             'the interrogator to the other end of the cable. Unit: [deg]')
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Cable depth below surface (positive downward). Unit: [m]
+        self.depth = self.nominal_refloc.depth
+        self.effective_refloc = self._get_effective_refloc()
+        self.channel_locs = self._get_channel_locs()
+
+    def _get_effective_refloc(self):
+        """
+        Geographical location of point `x=(first_channel - GL/2)`, where
+        `GL` is the gauge length.
+
+        Returns
+        -------
+        :py:class:`pyrocko.model.Location` object
+        """
+        lat0, lon0 = pod.azidist_to_latlon(
+            self.nominal_refloc.effective_lat,
+            self.nominal_refloc.effective_lon,
+            self.azimuth + 180.0,
+            self.gauge_len / 2.0 * pod.m2d)
+
+        return pmodel.Location(lat=lat0, lon=lon0, depth=self.depth)
+
+    def _get_channel_locs(self):
         """
         Geographical locations of the channels, as well as their
         latitudes and longitudes.
@@ -105,103 +157,45 @@ class SurfaceDASCable(Object):
             np.ones(self.n_channels) * self.azimuth,
             cha_offsets * pod.m2d)
 
-        cha_locs = []
-        for clat, clon in zip(cha_lats, cha_lons):
-            cha_locs.append(pmodel.Location(lat=clat, lon=clon))
+        cha_locs = [
+            pmodel.Location(lat=clat, lon=clon, depth=self.depth)
+            for clat, clon in zip(cha_lats, cha_lons)]
 
-        return (cha_locs, cha_lats, cha_lons)
+        return cha_locs
 
-    @property
-    def effective_len(self):
-        """
-        Effective length in m, from `xi=(first_channel - GL/2)` to
-        `xf =(last_channel + GL/2)`, where `GL` is the gauge length.
+    def _get_grid_locs(self, grid_spacing):
+        if self.channel_spacing % grid_spacing == 0.0:
+            # Some grids overlap. Can use moving average
+            n_grids = int(round(self.effective_len / grid_spacing)) + 1
+            grid_offsets = np.linspace(0.0, self.effective_len, n_grids)
+        else:
+            # Grids do not overlap. Must take average over separate GLs
+            # In this case, n_rec = n_channels * n_grids_per_gl
+            n_grids_per_gl = int(round(self.gauge_len / grid_spacing)) + 1
+            a = np.arange(self.n_channels)[:, None] * self.channel_spacing
+            b = np.linspace(0.0, self.gauge_len, n_grids_per_gl)
+            grid_offsets = (a + b).flatten()
 
-        Returns
-        -------
-        float
-        """
-        if self._effective_len is None:
-            self._effective_len = self.nominal_len + self.gauge_length
-        return self._effective_len
-
-    @property
-    def effective_refloc(self):
-        """
-        Geographical location of point `x=(first_channel - GL/2)`, where
-        `GL` is the gauge length.
-
-        Returns
-        -------
-        :py:class:`pyrocko.model.Location` object
-        """
-        if self._effective_refloc is None:
-            lat0, lon0 = pod.azidist_to_latlon(
-                self.nominal_refloc.effective_lat,
-                self.nominal_refloc.effective_lon,
-                self.azimuth + 180.0,
-                self.gauge_length / 2.0 * pod.m2d)
-
-            self._effective_refloc = pmodel.Location(lat=lat0, lon=lon0)
-
-        return self._effective_refloc
-
-    def _get_grid_locs_lats_lons(self, grid_spacing):
-        n_grids = int(round(self.effective_len / grid_spacing)) + 1
-        grid_offsets = np.linspace(0.0, self.effective_len, n_grids)
-
-        # Grid-point lats & lons, 2-tuple with arrays of shape (n_grids,)
+        # Grid lats & lons, 2-tuple of arrays of shape (n_grids,)
         grid_lats, grid_lons = pod.azidist_to_latlon(
             self.effective_refloc.effective_lat,
             self.effective_refloc.effective_lon,
-            np.ones(n_grids) * self.azimuth,
+            np.ones_like(grid_offsets) * self.azimuth,
             grid_offsets * pod.m2d)
 
-        grid_locs = []
-        for glat, glon in zip(grid_lats, grid_lons):
-            grid_locs.append(pmodel.Location(lat=glat, lon=glon))
+        grid_locs = [
+            pmodel.Location(lat=glat, lon=glon, depth=self.depth)
+            for glat, glon in zip(grid_lats, grid_lons)]
 
-        return (grid_locs, grid_lats, grid_lons)
-
-    @property
-    def grid_spacing(self):
-        """
-        Get grid spacing in [m] that is used for discretising the gauge
-        length to calculate point strains.
-        """
-        return self._grid_spacing
-
-    @property
-    def n_grids(self):
-        return self._n_grids
+        return grid_locs
 
     def set_grid_spacing(self, new_grid_spacing):
         """
         Set grid spacing in [m] that is used for discretising the gauge
         length to calculate point strains.
         """
-        grid_locs, grid_lats, grid_lons = (
-            self._get_grid_locs_lats_lons(new_grid_spacing))
         self._grid_spacing = new_grid_spacing
-        self._n_grids = len(grid_locs)
-        self._grid_locs = grid_locs
-        self._grid_lats = grid_lats
-        self._grid_lons = grid_lons
-
-    @property
-    def grid_locs(self):
-        """
-        Geographical locations of the grid points to calculate point
-        strains. They are set when `grid_spacing` is set.
-
-        Returns
-        -------
-        list of :py:class:`pyrocko.model.Location` objects
-        """
-        assert self._grid_spacing is not None, (
-            "Cannot return grid locations when 'grid_spacing' is None. "
-            "Set a value to 'grid_spacing' first")
-        return self._grid_locs
+        self._grid_locs = self._get_grid_locs(new_grid_spacing)
 
     def get_event_relative_data(self, event, level='channel'):
         """
@@ -227,21 +221,20 @@ class SurfaceDASCable(Object):
             (0, 1, 2)->(North, East, Down) axes.
         """
         if level not in (valid_levels := ('channel', 'grid')):
-            raise ValueError(f"Valid levels ar {valid_levels}")
+            raise ValueError(f"Valid levels are {valid_levels}")
 
         if level == 'grid':
             assert self._grid_spacing is not None, (
                 "cannot set relative data for grids when 'gridspacing' "
-                "is None. Set a value to 'grid_spacing' first.")
+                "is None. Run 'set_grid_spacing()' first")
 
         if level == 'channel':
-            rlats = self._channel_lats
-            rlons = self._channel_lons
-            rdepths = self.depth * np.ones(self.n_channels)
+            rdepths = np.ones_like(self.channel_locs) * self.depth
+            rlats, rlons = zip(
+                *[c.effective_latlon for c in self.channel_locs])
         else:
-            rlats = self._grid_lats
-            rlons = self._grid_lons
-            rdepths = self.depth * np.ones(self._n_grids)
+            rdepths = np.ones_like(self.grid_locs) * self.depth
+            rlats, rlons = zip(*[g.effective_latlon for g in self.grid_locs])
 
         return _get_relative_data(
             *event.effective_latlon, event.depth, rlats, rlons, rdepths)
@@ -279,14 +272,8 @@ def calc_radiation_patterns_mt(
         respectively).
     """
 
-    if quantity not in ('displacement', 'strain'):
-        raise ValueError(
-            f"unknown quantity: '{quantity}'."
-            f"Choices are {{'displacement', 'strain'}}")
-
-    # Dimension and coordinate names of output dataset
-    dims = ['axis', 'i_reciever']
-    coords = {'axis': ['x', 'y', 'z']}
+    if quantity not in (valid_quants := ('displacement', 'strain')):
+        raise ValueError(f"Valid quantities are: {valid_quants}")
 
     # Cache common terms to save computation time
     # Array shapes are M::(3, 3), Γ::(n_rec, 3, 1), ΓT::(n_rec, 1, 3)
@@ -305,6 +292,11 @@ def calc_radiation_patterns_mt(
     q2 = k1 * Γ
     q3 = k2 * Γ
 
+    # Dimension and coordinate names when saving RPs into `xr.DataSet`
+    dims = ['axis', 'i_reciever']
+    coords = {'axis': ['x', 'y', 'z']}
+
+    # ----------
     if quantity == 'strain':
         J = np.ones((3, 1), dtype=np.float64)
         q4 = k1 * J
@@ -365,8 +357,6 @@ def calc_radiation_patterns_mt(
                 ['FP', 'FS', 'IFP', 'IFS', 'INP', 'INS', 'N'],
                 [B_fp, B_fs, B_ifp, B_ifs, B_inp, B_ins, B_n])}
 
-        return Dataset(data_vars=data_vars, coords=coords)
-
     # ----------
     elif quantity == 'displacement':
         if far is True:
@@ -397,7 +387,7 @@ def calc_radiation_patterns_mt(
                 ['FP', 'FS', 'IP', 'IS', 'N'],
                 [A_fp, A_fs, A_ip, A_is, A_n])}
 
-        return Dataset(data_vars=data_vars, coords=coords)
+    return xr.Dataset(data_vars=data_vars, coords=coords)
 
 
 def pad_stf(t_phase, stf_amps, deltat, total_len):
@@ -507,6 +497,9 @@ class HIFullScenario(Object):
         -------
         None
         """
+        if quantity not in (valid_quants := ('displacement', 'strain')):
+            raise ValueError(f"Valid quantities are: {valid_quants}")
+
         self._recips['1/r'] = 1.0 / dists_3d.reshape(-1, 1, 1)
         self._recips['1/r2'] = pow(self._recips['1/r'], 2)
 
@@ -515,10 +508,6 @@ class HIFullScenario(Object):
         elif quantity == 'strain':
             self._recips['1/r3'] = pow(self._recips['1/r'], 3)
             self._recips['1/r5'] = pow(self._recips['1/r'], 5)
-        else:
-            raise ValueError(
-                f"unknown quantity: '{quantity}'."
-                f"Choices are {{'displacement', 'strain'}}")
 
     def _calc_ptimes(self, dists_3d):
         """
@@ -653,117 +642,126 @@ class StrainHIFullScenario(HIFullScenario):
         deltat = self.deltat
         n_rec = dists_3d.size
 
+        # ----------
+
         if far is True:
             # Far-field strain (ε_f ∝ 1/r)
 
-            T_fp = np.zeros((n_rec, 1, data_len), dtype=np.float64)
+            # Store only `εₓₓ` radiations, array of shape (n_rec, 1)
+            B_fp = xset['FP'].values[0][:, np.newaxis]
+            B_fs = xset['FS'].values[0][:, np.newaxis]
+
+            T_fp = np.zeros((n_rec, data_len), dtype=np.float64)
             T_fs = np.zeros_like(T_fp)
             for i_rec in range(n_rec):
                 T_fp[i_rec] = pad_stf(tp_all[i_rec], Dddot, deltat, data_len)
                 T_fs[i_rec] = pad_stf(ts_all[i_rec], Dddot, deltat, data_len)
-
-            B_fp = column_stack_3d(xset['FP'].values)
-            B_fs = column_stack_3d(xset['FS'].values)
 
             ε_fp = -c['1/4πρ'] * c['1/α']**4 * c['1/r'] * B_fp * T_fp
             ε_fs = +c['1/4πρ'] * c['1/β']**4 * c['1/r'] * B_fs * T_fs
 
             ε_f = ε_fp + ε_fs
         else:
-            ε_f = np.zeros((n_rec, 3, data_len), dtype=np.float64)
+            ε_f = np.zeros((n_rec, data_len), dtype=np.float64)
 
         if intermediate_far is True:
             # Intermediate-far field strain (ε_if ∝ 1/r²)
 
-            T_ifp = np.zeros((n_rec, 1, data_len), dtype=np.float64)
+            B_ifp = xset['IFP'].values[0][:, np.newaxis]
+            B_ifs = xset['IFS'].values[0][:, np.newaxis]
+
+            T_ifp = np.zeros((n_rec, data_len), dtype=np.float64)
             T_ifs = np.zeros_like(T_ifp)
             for i_rec in range(n_rec):
                 T_ifp[i_rec] = pad_stf(tp_all[i_rec], Ddot, deltat, data_len)
                 T_ifs[i_rec] = pad_stf(ts_all[i_rec], Ddot, deltat, data_len)
-
-            B_ifp = column_stack_3d(xset['IFP'].values)
-            B_ifs = column_stack_3d(xset['IFS'].values)
 
             ε_ifp = +c['1/4πρ'] * c['1/α']**3 * c['1/r2'] * B_ifp * T_ifp
             ε_ifs = -c['1/4πρ'] * c['1/β']**3 * c['1/r2'] * B_ifs * T_ifs
 
             ε_if = ε_ifp + ε_ifs
         else:
-            ε_if = np.zeros((n_rec, 3, data_len), dtype=np.float64)
+            ε_if = np.zeros((n_rec, data_len), dtype=np.float64)
 
         if intermediate_near is True:
             # Intermediate-near field strain (ε_in ∝ 1/r³)
 
-            T_inp = np.zeros((n_rec, 1, data_len), dtype=np.float64)
+            B_inp = xset['INP'].values[0][:, np.newaxis]
+            B_ins = xset['INS'].values[0][:, np.newaxis]
+
+            T_inp = np.zeros((n_rec, data_len), dtype=np.float64)
             T_ins = np.zeros_like(T_inp)
             for i_rec in range(n_rec):
                 T_inp[i_rec] = pad_stf(tp_all[i_rec], D, deltat, data_len)
                 T_ins[i_rec] = pad_stf(ts_all[i_rec], D, deltat, data_len)
-
-            B_inp = column_stack_3d(xset['INP'].values)
-            B_ins = column_stack_3d(xset['INS'].values)
 
             ε_inp = +c['1/4πρ'] * c['1/α']**2 * c['1/r3'] * B_inp * T_inp
             ε_ins = -c['1/4πρ'] * c['1/β']**2 * c['1/r3'] * B_ins * T_ins
 
             ε_in = ε_inp + ε_ins
         else:
-            ε_in = np.zeros((n_rec, 3, data_len), dtype=np.float64)
+            ε_in = np.zeros((n_rec, data_len), dtype=np.float64)
 
         if near is True:
             # Near-field strain (ε_n ∝ 1/r⁵)
 
-            T_n = np.zeros((n_rec, 1, data_len), dtype=np.float64)
+            B_n = xset['N'].values[0][:, np.newaxis]
+
+            T_n = np.zeros((n_rec, data_len), dtype=np.float64)
             for i_rec in range(n_rec):
                 T_n[i_rec] = convolve_stf(
                     tp_all[i_rec], ts_all[i_rec], D, deltat, data_len)
 
-            B_n = column_stack_3d(xset['N'].values)
-
             ε_n = +c['1/4πρ'] * c['1/r5'] * B_n * T_n
         else:
-            ε_n = np.zeros((n_rec, 3, data_len), dtype=np.float64)
+            ε_n = np.zeros((n_rec, data_len), dtype=np.float64)
 
-        # Store only `εₓₓ`. Keep it as 3-D array
-        ε_f = ε_f[:, [0], :]
-        ε_if = ε_if[:, [0], :]
-        ε_in = ε_in[:, [0], :]
-        ε_n = ε_n[:, [0], :]
+        # ----------
 
-        # Apply moving average
-        # Reshape arrays (n_rec, 1, data_len)->(1, 1, n_rec, data_len)
-        # Concatenate along axis=0. x_in.shape==(4, 1, n_rec, data_len)
-        x_in = np.concatenate(
-            [e.transpose((1, 0, 2))[None, :] for e in (ε_f, ε_if, ε_in, ε_n)],
-            axis=0)
-
-        # Kernel height and width
-        kH = int(round(cable.gauge_length / cable.grid_spacing)) + 1
-        kW = 1
-        kernel = np.ones((1, 1, kH, kW), dtype=np.float64)
-
-        # Stride height and width
-        sH = int(round(cable.channel_spacing / cable.grid_spacing))
-        sW = 1
-
-        x_out = conv2d(
-            input=torch.from_numpy(x_in),
-            weight=torch.from_numpy(kernel),
-            stride=(sH, sW), padding=0)
-        x_out = x_out.numpy()
-
-        # Save results into a `xr.DataSet` with following dimensions and
-        # coordinates. Strains are longitudinal only (along the cable).
+        # Dimension and coordinate names when saving strains into `xr.DataSet`
         dims = ['i_reciever', 'time']
         coords = {'time': np.arange(data_len) * self.deltat}
-        data_vars = {
-            'F': (dims, x_out[0].squeeze(axis=0)),
-            'IF': (dims, x_out[1].squeeze(axis=0)),
-            'IN': (dims, x_out[2].squeeze(axis=0)),
-            'N': (dims, x_out[3].squeeze(axis=0)),
-            'total': (dims, x_out.sum(axis=0).squeeze(axis=0))}
 
-        return Dataset(data_vars=data_vars, coords=coords)
+        if cable.channel_spacing % cable.grid_spacing == 0.0:
+            # Apply moving average
+
+            # Reshape `εₓₓ` arrays (n_rec, data_len)->(1, n_rec, data_len)
+            # Stack all along axis=0, x_in.shape == (4, 1, n_rec, data_len)
+            x_in = np.stack(
+                [e[np.newaxis, :] for e in (ε_f, ε_if, ε_in, ε_n)],
+                axis=0)
+
+            # Kernel height is number of grid *points* per GL
+            kH = int(round(cable.gauge_len / cable.grid_spacing)) + 1
+
+            # Stride height is number of grid *intervals* per stride
+            sH = int(round(cable.channel_spacing / cable.grid_spacing))
+
+            x_out = avg_pool2d(torch.from_numpy(x_in), (kH, 1), stride=(sH, 1))
+            x_out = x_out.numpy()
+
+            data_vars = {
+                'F': (dims, x_out[0].squeeze(axis=0)),
+                'IF': (dims, x_out[1].squeeze(axis=0)),
+                'IN': (dims, x_out[2].squeeze(axis=0)),
+                'N': (dims, x_out[3].squeeze(axis=0)),
+                'total': (dims, x_out.sum(axis=0).squeeze(axis=0))}
+        else:
+            # Average point strains over separate GLs
+            # n_rec = n_channels * n_grids_per_gl
+            x_in = [ε_f, ε_if, ε_in, ε_n]
+            x_out = np.mean(
+                np.stack(np.split(x_in, cable.n_channels, axis=1), axis=1),
+                axis=2)
+
+            data_vars = {
+                'F': (dims, x_out[0]),
+                'IF': (dims, x_out[1]),
+                'IN': (dims, x_out[2]),
+                'N': (dims, x_out[3]),
+                'total': (dims, x_out.sum(axis=0))}
+
+        return xr.Dataset(data_vars=data_vars, coords=coords)
 
 
 class DisplacementHIFullScenario(HIFullScenario):
@@ -910,4 +908,4 @@ class DisplacementHIFullScenario(HIFullScenario):
                 ['F', 'I', 'N', 'total'],
                 [u_f, u_i, u_n, u_total])}
 
-        return Dataset(data_vars=data_vars, coords=coords)
+        return xr.Dataset(data_vars=data_vars, coords=coords)
