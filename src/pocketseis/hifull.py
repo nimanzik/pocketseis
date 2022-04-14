@@ -17,7 +17,30 @@ guts_prefix = 'pf'
 
 
 def _get_relative_data(lat0, lon0, depth0, lats, lons, depths):
-    # We use a (x=North, y=East, z=Down) coordinate system.
+    """
+    Calculates the 3-D distances and directional cosines of a set of
+    observation points (potential receivers) from a reference location
+    (potential seismic source) in a Cartesian coordinate system defined
+    as (x, y, z)=(North, East, Down).
+
+    Parameters
+    ----------
+    lat0, lon0, depth0: float
+        Geographical coordinates of the reference point.
+    lats, lons, depths : list of floats
+        Geographical coordinates of the observation points.
+
+    Returns
+    -------
+    dists_3d : ndarray of shape (n_receivers,)
+        3-D distances of observation points from event. Unit: [m]
+    dircos_vecs : ndarray of shape (3, n_receivers)
+        Unit vectors of direction cosines. Relative event-receiver
+        position vectors are in Cartesian coordinate system (i.e.
+        vectors whose initial and terminal are event and observation
+        points, respectively). The indexes of the first dimension
+        represent (0, 1, 2)->(North, East, Down) axes.
+    """
     lats = np.asarray(lats, dtype=np.float64)
     lons = np.asarray(lons, dtype=np.float64)
     depths = np.asarray(depths, dtype=np.float64)
@@ -38,7 +61,7 @@ def _get_relative_data(lat0, lon0, depth0, lats, lons, depths):
     return (dists_3d, dircos_vecs)
 
 
-class DASCable(Object):
+class BaseDASCable(Object):
     nominal_refloc = pmodel.Location.T(
         default=pmodel.Location(lat=0.0, lon=0.0, depth=0.0),
         help='Geographycal location of the first channel')
@@ -54,57 +77,25 @@ class DASCable(Object):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self._n_channels = None
-        self._effective_len = None
-        self._grid_spacing = None
-        self._grid_locs = []
+        self.grid_spacing = None
+        self.grid_locs = []
 
     @property
     def n_channels(self):
-        """
-        Returns
-        -------
-        n : int
-            Number of channels.
-        """
-        if self._n_channels is None:
-            self._n_channels = \
-                int(round(self.nominal_len / self.channel_spacing)) + 1
-        return self._n_channels
+        return int(round(self.nominal_len / self.channel_spacing)) + 1
 
     @property
     def effective_len(self):
         """
-        Effective length in m, from `xi=(first_channel - GL/2)` to
-        `xf =(last_channel + GL/2)`, where `GL` is the gauge length.
-
         Returns
         -------
-        float
+        Effective length in m, from `xi=(first_channel - GL/2)` to
+        `xf =(last_channel + GL/2)`, where `GL` is the gauge length.
         """
-        if self._effective_len is None:
-            self._effective_len = self.nominal_len + self.gauge_len
-        return self._effective_len
-
-    @property
-    def grid_spacing(self):
-        """
-        Get grid spacing in [m] that is used for discretising the gauge
-        length to calculate point strains.
-        """
-        return self._grid_spacing
-
-    @property
-    def grid_locs(self):
-        """
-        Geographical locations of the grid points to calculate point
-        strains. They are set when `grid_spacing` is set and stored as
-        list of :py:class:`pyrocko.model.Location` objects.
-        """
-        return self._grid_locs
+        return self.nominal_len + self.gauge_len
 
 
-class SurfaceDASCable(DASCable):
+class SurfaceDASCable(BaseDASCable):
     azimuth = Float.T(
         default=0.0,
         help='Azimuth measured clockwise from the North(=x) and is '
@@ -163,15 +154,19 @@ class SurfaceDASCable(DASCable):
 
         return cha_locs
 
-    def _get_grid_locs(self, grid_spacing):
-        if self.channel_spacing % grid_spacing == 0.0:
+    def set_grid_spacing(self, new_grid_spacing):
+        """
+        Set grid spacing in [m] that is used for discretising the gauge
+        length to calculate point strains.
+        """
+        if self.channel_spacing % new_grid_spacing == 0.0:
             # Some grids overlap. Can use moving average
-            n_grids = int(round(self.effective_len / grid_spacing)) + 1
+            n_grids = int(round(self.effective_len / new_grid_spacing)) + 1
             grid_offsets = np.linspace(0.0, self.effective_len, n_grids)
         else:
             # Grids do not overlap. Must take average over separate GLs
             # In this case, n_rec = n_channels * n_grids_per_gl
-            n_grids_per_gl = int(round(self.gauge_len / grid_spacing)) + 1
+            n_grids_per_gl = int(round(self.gauge_len / new_grid_spacing)) + 1
             a = np.arange(self.n_channels)[:, None] * self.channel_spacing
             b = np.linspace(0.0, self.gauge_len, n_grids_per_gl)
             grid_offsets = (a + b).flatten()
@@ -187,15 +182,8 @@ class SurfaceDASCable(DASCable):
             pmodel.Location(lat=glat, lon=glon, depth=self.depth)
             for glat, glon in zip(grid_lats, grid_lons)]
 
-        return grid_locs
-
-    def set_grid_spacing(self, new_grid_spacing):
-        """
-        Set grid spacing in [m] that is used for discretising the gauge
-        length to calculate point strains.
-        """
-        self._grid_spacing = new_grid_spacing
-        self._grid_locs = self._get_grid_locs(new_grid_spacing)
+        self.grid_spacing = new_grid_spacing
+        self.grid_locs = grid_locs
 
     def get_event_relative_data(self, event, level='channel'):
         """
@@ -224,8 +212,8 @@ class SurfaceDASCable(DASCable):
             raise ValueError(f"Valid levels are {valid_levels}")
 
         if level == 'grid':
-            assert self._grid_spacing is not None, (
-                "cannot set relative data for grids when 'gridspacing' "
+            assert self.grid_spacing is not None, (
+                "cannot set relative data for grids when 'grid_spacing' "
                 "is None. Run 'set_grid_spacing()' first")
 
         if level == 'channel':
