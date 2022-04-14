@@ -288,9 +288,4 @@ def zne2lqt_rotmat(bazi, incid):
     return np.squeeze(rotmat_3d)
 
 
-__all__ = """
-    cartesian_rotmat
-    rotate_mt
-    ne2rt_rotmat
-    zne2lqt_rotmat
-""".split()
+__all__ = ['cartesian_rotmat', 'rotate_mt', 'ne2rt_rotmat', 'zne2lqt_rotmat']

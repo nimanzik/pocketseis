@@ -8,12 +8,12 @@ from pocketseis import rotation as rot
 
 class RotationTestCase(unittest.TestCase):
 
-    def test_rotmat_cartesian(self):
+    def test_cartesian_rotmat(self):
 
         theta = np.pi / 2.0
-        Rx = rot.rotmat_cartesian(theta, 'x')
-        Ry = rot.rotmat_cartesian(theta, 'y')
-        Rz = rot.rotmat_cartesian(theta, 'z')
+        Rx = rot.cartesian_rotmat(theta, 'x')
+        Ry = rot.cartesian_rotmat(theta, 'y')
+        Rz = rot.cartesian_rotmat(theta, 'z')
 
         e1, e2, e3 = np.eye(3, dtype=np.float64)
 

@@ -44,7 +44,7 @@ def list_sci_cmaps():
     })
 
 
-def get_sci_cmap(name):
+def fetch_sci_cmap(name):
     """
     Get a colormap instance provided by ``'ScientificColourMaps7'``.
 
@@ -244,11 +244,10 @@ def darken_color(color, factor):
     return color_new
 
 
-__all__ = """
-    list_sci_cmaps
-    get_sci_cmap
-    hex2rgb
-    rgb2hex
-    lighten_color
-    darken_color
-""".split()
+__all__ = [
+    'list_sci_cmaps',
+    'fetch_sci_cmap',
+    'hex2rgb',
+    'rgb2hex',
+    'lighten_color',
+    'darken_color']

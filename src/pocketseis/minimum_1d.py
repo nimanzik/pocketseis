@@ -1,35 +1,8 @@
 from pyrocko import cake
-from pyrocko.guts import Float, Object
 
 
 KM2M = 1.0e+3
 M2KM = 1.0e-3
-
-guts_prefix = 'pf'
-
-
-class HIFullMaterial(Object):
-    """
-    Elastic properties of a homogeneous, isotropic, unbounded
-    (full-space) medium.
-    Default `vs` value is 5800 m/s (standard crustal value) and vs is
-    then set accordingly for a Poisson solid (ν=0.25).
-    """
-    vp = Float.T(default=5800.0, help='P-wave velocity. Unit: [m/s]')
-    vs = Float.T(default=3348.0, help='S-wave velocity. Unit: [m/s]')
-    rho = Float.T(default=2600.0, help='Density. Unit: [kg/m^3]')
-
-    def lame(self):
-        """
-        Lame constants.
-
-        Returns
-        -------
-        2-tuple of (λ, μ)
-        """
-        μ = self.vs**2 * self.rho
-        λ = self.vp**2 * self.rho - (2.0 * μ)
-        return (λ, μ)
 
 
 def empirical_density(vp):
@@ -68,7 +41,7 @@ def empirical_density(vp):
     return rho
 
 
-def qp_from_infqk(qs, vp, vs):
+def calc_qp(qs, vp, vs):
     """
     Calculate Qp from Qs, Vp and Vs assuming a purly compressive or
     dilational processes (i.e. Bulk quality factor, Qk, is infinity) by
@@ -93,7 +66,7 @@ def qp_from_infqk(qs, vp, vs):
     return 0.75 * (vp / vs)**2 * qs
 
 
-def qs_from_infqk(qp, vp, vs):
+def calc_qs(qp, vp, vs):
     """
     Calculate Qs from Qp, Vp and Vs assuming a purly compressive or
     dilational processes (i.e. Bulk quality factor, Qk, is infinity) by
@@ -126,9 +99,9 @@ def _read_minimum1d_model_fh(f, zbot=None, qp=None, qs=None):
         rho = empirical_density(vp)
 
         if qp and not qs:
-            qs = qs_from_infqk(qp, vp, vs)
+            qs = calc_qs(qp, vp, vs)
         elif qs and not qp:
-            qp = qp_from_infqk(qs, vp, vs)
+            qp = calc_qp(qs, vp, vs)
 
         if mabove:
             from_scanlines.append((z, mabove, None))

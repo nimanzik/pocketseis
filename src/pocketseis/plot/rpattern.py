@@ -4,7 +4,7 @@ from matplotlib.colors import Normalize
 import numpy as np
 
 from pocketseis import hifull
-from pocketseis.plot import get_sci_cmap
+from pocketseis.plot import fetch_sci_cmap
 
 
 class UnitSphereFullSurface(object):
@@ -43,8 +43,8 @@ class UnitSphereFullSurface(object):
         self.__indexing = 'ij'
         self.sshape = (n_theta, n_phi)
 
-        thetas = np.linspace(0, np.pi, n_theta, dtype=np.float64)
-        phis = np.linspace(0., 2.0 * np.pi, n_phi, dtype=np.float64)
+        thetas = np.linspace(0.0, np.pi, n_theta, dtype=np.float64)
+        phis = np.linspace(0.0, 2.0 * np.pi, n_phi, dtype=np.float64)
         vthetas, vphis = np.meshgrid(thetas, phis, indexing=self.__indexing)
 
         st = np.sin(vthetas)
@@ -171,7 +171,7 @@ def plot_radiation_pattern(
         raise ValueError(f"Valid values for wave_type are {validwaves}")
 
     key = wave_field if wave_field == 'N' else wave_field + wave_type
-    F = hifull.calc_radiation_pattern_factors(
+    F = hifull.calc_radiation_patterns_mt(
         mt_symmat, qsphere.gamma_uv, quantity)[key].values
 
     # Project r-pattern factors
@@ -206,15 +206,15 @@ def plot_radiation_pattern(
     mags = maxabs_scale(np.sqrt(R**2))
 
     if wave_type == 'P':
-        cmap = get_sci_cmap('berlin')
+        cmap = fetch_sci_cmap('berlin')
         norm = Normalize(-1, 1)
     else:
         if direction is None:
             # S r-pattern in absolute values
-            cmap = get_sci_cmap('bamako')
+            cmap = fetch_sci_cmap('bamako')
             norm = Normalize(0, 1)
         else:
-            cmap = get_sci_cmap('lisbon')
+            cmap = fetch_sci_cmap('lisbon')
             norm = Normalize(-1, 1)
 
     # Indivusual facecolors. Fourth dimension -> rgba

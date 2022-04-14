@@ -128,4 +128,4 @@ def calculate_ba_value(mags, mc, bin_size=0.1):
 
 def gutenberg_richter(m, b_val, a_val):
     """Gutenberg-Richter law"""
-    return 10.**(a_val - b_val * np.asarray(m))
+    return 10.0**(a_val - b_val * np.asarray(m))

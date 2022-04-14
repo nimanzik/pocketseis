@@ -297,13 +297,12 @@ def random_mt(n_src=1, method='S5', seed=None):
     return mt_list
 
 
-__all__ = """
-    tuple6_to_symmat
-    symmat_to_tuple6
-    moment_to_magnitude
-    magnitude_to_moment
-    normalize_mt
-    denormalize_mt
-    angular_distance
-    euclidean_distance
-""".split()
+__all__ = [
+    'tuple6_to_symmat',
+    'symmat_to_tuple6',
+    'moment_to_magnitude',
+    'magnitude_to_moment',
+    'normalize_mt',
+    'denormalize_mt',
+    'angular_distance',
+    'euclidean_distance']

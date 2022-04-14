@@ -137,9 +137,8 @@ def create_cbar_axes(ax, position, size, pad='3%'):
     return cax
 
 
-__all__ = """
-    transform_data2axes
-    sci_tickformatter
-    sci_strformatter
-    create_cbar_axes
-""".split()
+__all__ = [
+    'transform_data2axes',
+    'sci_tickformatter',
+    'sci_strformatter',
+    'create_cbar_axes']
