@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 from scipy.signal import fftconvolve
 
@@ -276,7 +278,7 @@ class HIFullScenario(Object):
         if quantity not in (valid_quants := ('displacement', 'strain')):
             raise ValueError(f"Valid quantities are: {valid_quants}")
 
-        self._recips['1/r'] = 1.0 / dists_3d.reshape(-1, 1, 1)
+        self._recips['1/r'] = 1.0 / dists_3d
         self._recips['1/r2'] = pow(self._recips['1/r'], 2)
 
         if quantity == 'displacement':
@@ -368,8 +370,10 @@ class StrainHIFullScenario(HIFullScenario):
         dists_3d, dircos_vecs = \
             cable.get_event_relative_data(event, level='grid')
 
-        # Cache reciprocals of powers of 3-D distances
-        self._cache_dist_recips(dists_3d=dists_3d, quantity='strain')
+        # Cache powers of 3-D distances, arrays of shape (n_Rec, 1)
+        self._cache_dist_recips(
+            dists_3d=dists_3d[:, np.newaxis],
+            quantity='strain')
 
         # We assume that the DAS cable is oriented in the `x` direction.
         # The axial strain along the cable can be deduced as the normal
@@ -424,10 +428,11 @@ class StrainHIFullScenario(HIFullScenario):
         if far is True:
             # Far-field strain (ε_f ∝ 1/r)
 
-            # Store only `εₓₓ` radiations, array of shape (n_rec, 1)
+            # Store only `εₓₓ` radiations, arrays of shape (n_rec, 1)
             B_fp = xset['FP'].values[0][:, np.newaxis]
             B_fs = xset['FS'].values[0][:, np.newaxis]
 
+            # STF values, arrays of shape (n_rec, data_len)
             T_fp = np.zeros((n_rec, data_len), dtype=np.float64)
             T_fs = np.zeros_like(T_fp)
             for i_rec in range(n_rec):
@@ -499,7 +504,9 @@ class StrainHIFullScenario(HIFullScenario):
         dims = ['i_reciever', 'time']
         coords = {'time': np.arange(data_len) * self.deltat}
 
-        if cable.channel_spacing % cable.grid_spacing == 0.0:
+        if math.isclose(
+                math.remainder(cable.channel_spacing, cable.grid_spacing), 0.0,
+                rel_tol=0.0, abs_tol=1e-9):
             # Apply moving average
 
             # Reshape `εₓₓ` arrays (n_rec, data_len)->(1, n_rec, data_len)
@@ -526,7 +533,7 @@ class StrainHIFullScenario(HIFullScenario):
         else:
             # Average point strains over separate GLs
             # n_rec = n_channels * n_grids_per_gl
-            x_in = [ε_f, ε_if, ε_in, ε_n]
+            x_in = np.stack([ε_f, ε_if, ε_in, ε_n], axis=0)
             x_out = np.mean(
                 np.stack(np.split(x_in, cable.n_channels, axis=1), axis=1),
                 axis=2)
@@ -587,8 +594,10 @@ class DisplacementHIFullScenario(HIFullScenario):
         dists_3d, dircos_vecs = calc_relative_data(
             *event.effective_latlon, event.depth, rlats, rlons, rdepths)
 
-        # Cache reciprocals of powers of 3-D distances.
-        self._cache_dist_recips(dists_3d=dists_3d, quantity='displacement')
+        # Cache powers of 3-D distances, arrays of shape (n_rec, 1, 1)
+        self._cache_dist_recips(
+            dists_3d=dists_3d[:, np.newaxis, np.newaxis],
+            quantity='displacement')
 
         # Radiation-pattern factors
         mt_symmat = np.asarray(source.pyrocko_moment_tensor().m())
@@ -621,14 +630,16 @@ class DisplacementHIFullScenario(HIFullScenario):
         if far is True:
             # Far-field displacement (u_f ∝ 1/r)
 
+            # Radiation patterns, arrays of shape (n_rec, 3, 1)
+            A_fp = column_stack_3d(xset['FP'].values)
+            A_fs = column_stack_3d(xset['FS'].values)
+
+            # STF values, arrays of shape (n_rec, 1, data_len)
             T_fp = np.zeros((n_rec, 1, data_len), dtype=np.float64)
             T_fs = np.zeros_like(T_fp)
             for i_rec in range(n_rec):
                 T_fp[i_rec] = pad_stf(tp_all[i_rec], Ddot, deltat, data_len)
                 T_fs[i_rec] = pad_stf(ts_all[i_rec], Ddot, deltat, data_len)
-
-            A_fp = column_stack_3d(xset['FP'].values)
-            A_fs = column_stack_3d(xset['FS'].values)
 
             u_fp = +c['1/4πρ'] * c['1/α']**3 * c['1/r'] * A_fp * T_fp
             u_fs = -c['1/4πρ'] * c['1/β']**3 * c['1/r'] * A_fs * T_fs
@@ -640,14 +651,14 @@ class DisplacementHIFullScenario(HIFullScenario):
         if intermediate is True:
             # Intermediate-field displacement (u_i ∝ 1/r²)
 
+            A_ip = column_stack_3d(xset['IP'].values)
+            A_is = column_stack_3d(xset['IS'].values)
+
             T_ip = np.zeros((n_rec, 1, data_len), dtype=np.float64)
             T_is = np.zeros_like(T_ip)
             for i_rec in range(n_rec):
                 T_ip[i_rec] = pad_stf(tp_all[i_rec], D, deltat, data_len)
                 T_is[i_rec] = pad_stf(ts_all[i_rec], D, deltat, data_len)
-
-            A_ip = column_stack_3d(xset['IP'].values)
-            A_is = column_stack_3d(xset['IS'].values)
 
             u_ip = +c['1/4πρ'] * c['1/α']**2 * c['1/r2'] * A_ip * T_ip
             u_is = -c['1/4πρ'] * c['1/β']**2 * c['1/r2'] * A_is * T_is
@@ -659,12 +670,12 @@ class DisplacementHIFullScenario(HIFullScenario):
         if near is True:
             # Near-field displacement (u_n ∝ 1/r⁵)
 
+            A_n = column_stack_3d(xset['N'].values)
+
             T_n = np.zeros((n_rec, 1, data_len), dtype=np.float64)
             for i_rec in range(n_rec):
                 T_n[i_rec] = convolve_stf(
                     tp_all[i_rec], ts_all[i_rec], D, deltat, data_len)
-
-            A_n = column_stack_3d(xset['N'].values)
 
             u_n = +c['1/4πρ'] * c['1/r4'] * A_n * T_n
         else:
@@ -674,7 +685,7 @@ class DisplacementHIFullScenario(HIFullScenario):
         u_total = u_f + u_i + u_n
 
         # Save results into a `xr.DataSet` with following dimensions and
-        # coordinates. Each array is of shape (n_receivers, 3, data_len).
+        # coordinates. Each array is of shape (n_rec, 3, data_len).
         dims = ['i_reciever', 'axis', 'time']
         coords = {
             'axis': ['x', 'y', 'z'],

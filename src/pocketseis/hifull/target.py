@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 
 from pyrocko import model as pmodel, orthodrome as od
@@ -43,13 +45,21 @@ class BaseDASCable(Object):
         return self.nominal_len + self.gauge_len
 
     def _get_grid_offsets(self, new_grid_spacing):
-        if self.channel_spacing % new_grid_spacing == 0.0:
-            # Some grids overlap. Can use moving average
+        """
+        Returns
+        -------
+        grid_offsets : ndarray of shape (n_grids,)
+            Grid point offsets from the effective reference location.
+        """
+        if math.isclose(
+                math.remainder(self.channel_spacing, new_grid_spacing), 0.0,
+                rel_tol=0.0, abs_tol=1e-9):
+            # Some grids overlap. We can use moving average
             n_grids = int(round(self.effective_len / new_grid_spacing)) + 1
             grid_offsets = np.linspace(0.0, self.effective_len, n_grids)
         else:
             # Grids do not overlap. Must take average over separate GLs
-            # In this case, n_rec = n_channels * n_grids_per_gl
+            # In this case, n_grids = n_channels * n_grids_per_gl
             n_grids_per_gl = int(round(self.gauge_len / new_grid_spacing)) + 1
             a = np.arange(self.n_channels)[:, None] * self.channel_spacing
             b = np.linspace(0.0, self.gauge_len, n_grids_per_gl)
