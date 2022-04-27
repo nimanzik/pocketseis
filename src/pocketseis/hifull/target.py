@@ -158,12 +158,12 @@ class SurfaceDASCable(BaseDASCable):
         -------
         dists_3d : ndarray of shape (n_receivers,)
             3-D distances of observation points from event. Unit: [m]
-        dircos_vecs : ndarray of shape (3, n_receivers)
+        cosine_vecs : ndarray of shape (n_receivers, 3)
             Unit vectors of direction cosines. Relative event-receiver
             (either channels or grids) position vectors are in Cartesian
             coordinate system (i.e. vectors whose initial and terminal
             are event and observation  points, respectively). The
-            indexes of the first dimension represent
+            indexes of the second dimension represent
             (0, 1, 2)->(North, East, Down) axes.
         """
         if level not in (valid_levels := ('channel', 'grid')):

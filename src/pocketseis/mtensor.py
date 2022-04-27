@@ -9,8 +9,8 @@ from pyrocko import moment_tensor as pmt
 
 def tuple6_to_symmat(a):
     """
-    Create symmetric 3-by-3 moment-tensor matrix from its 6
-    independent values.
+    Create symmetric 3-by-3 moment-tensor matrix from its six
+    independent components.
 
     Parameters
     ----------

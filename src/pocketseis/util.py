@@ -145,7 +145,7 @@ def column_stack_3d(array_2d):
     return np.dstack(array_2d).reshape(n_cols, n_rows, 1)
 
 
-def issymmetric(a, tol=1.e-10):
+def issymmetric(a, tol=1e-10):
     """
     Check if given array/matrix is symmetric.
     """

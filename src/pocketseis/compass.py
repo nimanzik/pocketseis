@@ -21,11 +21,11 @@ def calc_relative_data(lat0, lon0, depth0, lats, lons, depths):
     -------
     dists_3d : ndarray of shape (n_receivers,)
         3-D distances of observation points from event. Unit: [m]
-    cosine_vecs : ndarray of shape (3, n_receivers)
+    cosine_vecs : ndarray of shape (n_receivers, 3)
         Unit vectors of direction cosines. Relative event-receiver
         position vectors are in Cartesian coordinate system (i.e.
         vectors whose initial and terminal are event and observation
-        points, respectively). The indexes of the first dimension
+        points, respectively). The idices of the second dimension
         represent (0, 1, 2)->(North, East, Down) axes.
     """
     lats = np.asarray(lats, dtype=np.float64)
@@ -35,17 +35,17 @@ def calc_relative_data(lat0, lon0, depth0, lats, lons, depths):
     deltazs = depths - depth0
     deltaxs, deltays = od.latlon_to_ne_numpy(lat0, lon0, lats, lons)
 
-    # Position vectors relative to reference loc., array of shape (3, n_points)
-    pos_vecs = np.vstack([deltaxs, deltays, deltazs])
-    assert pos_vecs.shape == (3, lats.size)
+    # Position vectors relative to reference loc., array of shape (n_points, 3)
+    pos_vecs = np.stack([deltaxs, deltays, deltazs], axis=1)
+    assert pos_vecs.shape == (lats.size, 3)
 
     # 3-D distances from reference loc., array of shape (n_points,)
-    dists_3d = np.sqrt(np.sum(pos_vecs**2, axis=0, keepdims=False))
+    dists_3d = np.sqrt(np.sum(pos_vecs**2, axis=1, keepdims=True))
 
     # Unit vectors of direction cosines
     cosine_vecs = pos_vecs / dists_3d
 
-    return (dists_3d, cosine_vecs)
+    return (dists_3d.flatten(), cosine_vecs)
 
 
 class WGS84(object):
