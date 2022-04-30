@@ -26,7 +26,7 @@ def calc_relative_data(lat0, lon0, depth0, lats, lons, depths):
         position vectors are in Cartesian coordinate system (i.e.
         vectors whose initial and terminal are event and observation
         points, respectively). The idices of the second dimension
-        represent (0, 1, 2)->(North, East, Down) axes.
+        represent (0, 1, 2)->(x, y, z)=(North, East, Down) axes.
     """
     lats = np.asarray(lats, dtype=np.float64)
     lons = np.asarray(lons, dtype=np.float64)

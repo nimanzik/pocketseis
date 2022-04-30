@@ -1,4 +1,6 @@
+from functools import partial
 import math
+import time
 
 import numpy as np
 from scipy.signal import fftconvolve
@@ -34,12 +36,12 @@ def rpcalc_disp_from_mt(
     Returns
     -------
     ds : :py:class:`xarray.Dataset` object
-        Radiation pattern factors for displacement due to a moment-tensor
-        point source. The Dataset keys are `'FP', 'FS', 'IP', 'IS', 'N'`.
-        Each key of the Dataset is mapped to a 2-D array of shape
-        `(n_receivers, 3)`, whose dimesion names are `'i_receiver'` and
+        Radiation patterns for displacement due to a moment-tensor point
+        source. The Dataset keys are `{'FP', 'FS', 'IP', 'IS', 'N'}`.
+        Each key is mapped to a 2-D array, whose shape is
+        `(n_receivers, 3)` and dimesion names are `'i_receiver'` and
         `'axis'`, with sizes equal to `n_receivers` and 3, respectively.
-        The coordinate names of the dimension `axis` are `'x', 'y', 'z'`
+        The coordinate names of the dimension `axis` are `{'x', 'y', 'z'}`
         corresponding to indices 0, 1 and 2, respectively.
     """
     # Array shapes are M::(3, 3), Γ::(n_rec, 3, 1), ΓT::(n_rec, 1, 3)
@@ -100,13 +102,13 @@ def rpcalc_disp_from_sf(force_vec, cosine_vecs, far=True, near=True):
     Returns
     -------
     ds : :py:class:`xarray.Dataset` object
-        Radiation pattern factors for displacement due to a single-force
-        point source. The Dataset keys are `'FP', 'FS', 'N'`. Each key
-        of the Dataset is mapped to a 2-D array of shape
-        `(n_receivers, 3)`, whose dimesion names are `'i_receiver'` and
-        `'axis'`, with sizes equal to `n_receivers` and 3, respectively.
-        The coordinate names of the dimension `axis` are `'x', 'y', 'z'`
-        corresponding to indices 0, 1 and 2, respectively.
+        Radiation patterns for displacement due to a single-force point
+        source. The Dataset keys are `{'FP', 'FS', 'N'}`. Each key is
+        mapped to a 2-D array, whose shape is `(n_receivers, 3)` and
+        dimesion names are `'i_receiver'` and `'axis'`, with sizes equal
+        to `n_receivers` and 3, respectively. The coordinate names of
+        the dimension `axis` are `{'x', 'y', 'z'}` corresponding to
+        indices 0, 1 and 2, respectively.
     """
     # Array shapes are F::(3, 1), Γ::(n_rec, 3, 1)
     F = np.asarray(force_vec)
@@ -159,12 +161,12 @@ def rpcalc_normal_strain_from_mt(
     ds : :py:class:`xarray.Dataset` object
         Radiation patterns for strain due to a moment-tensor
         point source. The Dataset keys are
-        `{'FP', 'FS', 'IFP', 'IFS', 'INP', 'INS', 'N'}`. Each key of the
-        Dataser is mapped to a 2-D array of shape `(n_receivers, 3)`,
-        whose dimesion names are `'i_receiver'`, and `'axis'`, with
-        sizes equal to `n_receivers` and 3, respectively. The coordinate
-        names of the dimension `axis` are `{'x', 'y' and 'z'}`,
-        corresponding to indices 0, 1 and 2, respectively.
+        `{'FP', 'FS', 'IFP', 'IFS', 'INP', 'INS', 'N'}`. Each key is
+        mapped to a 2-D array, whose shape is `(n_receivers, 3)` and
+        dimesion names are `'i_receiver'`, and `'axis'`, with sizes
+        equal to `n_receivers` and 3, respectively. The coordinate names
+        of the dimension `axis` are `{'x', 'y' and 'z'}`, corresponding
+        to indices 0, 1 and 2, respectively.
     """
     # Array shapes are M::(3, 3), Γ::(n_rec, 3, 1), ΓT::(n_rec, 1, 3)
     M = np.asarray(mt_symmat)
@@ -239,43 +241,7 @@ def rpcalc_normal_strain_from_mt(
     return xr.Dataset(data_vars=data_vars, coords=coords)
 
 
-def pad_stf(t_phase, stf_amps, deltat, total_len):
-    """
-    Pad source-time function to obtain intermediate- or far-field motion
-    at a fixed receiver. It is assumed that reference time is zero. This
-    means that `t_phase` is phase travel-time from source to receiver.
-
-    Parameters
-    ----------
-    t_phase : float
-        Phase (P or S) travel-time in s. It's either `r/α` or `r/β`,
-        where `r` is source-reciver 3-D distance, and `α` and `β` are
-        P- and S-wave velocities, respectively.
-    stf_amps : array-like of shape (n_samples,)
-        Source-time function amplitudes.
-    deltat : float
-        Time-sampling interval. Unit: [s]
-    total_len : int
-        Length of motion time-function in *number of samples* (rather
-        than s). This is equal to a time-length of `r/β + T`, where `T`
-        is the duration of source-time function in s.
-
-    Returns
-    -------
-    out : ndarray of shape (total_len,)
-        Padded source-time function.
-    """
-    before = time_to_index(t_phase, deltat)
-    after = total_len - (before + stf_amps.size)
-
-    return np.pad(
-        stf_amps,
-        pad_width=(before, after),
-        mode='constant',
-        constant_values=(0.0, stf_amps[-1]))
-
-
-def convolve_stf(tp, ts, stf_amps, deltat, total_len):
+def _convolve_stf(tp, ts, stf_amps, deltat):
     """
     Convolve source-time function with time to obtain near-field motion
     at a fixed receiver. It is assumed that reference time is zero. This
@@ -294,23 +260,20 @@ def convolve_stf(tp, ts, stf_amps, deltat, total_len):
         Time-sampling interval. Unit: [s]
     total_len : int
         Length of motion time-function in *number of samples* (rather
-        than sec). This is equal to a time-length of `r/β + T`, where
-        `T` is the duration of source-time function in sec.
+        than sec). This is equal to a time-length of `r/c + T`, where
+        `T` is the duration of source-time function in sec, `r` is 3-D
+        distance and `c` is the wave velocity.
+
+    Returns
+    -------
+    out : ndarray of shape (m+n-1,)
+        Convolved source-time function.
     """
     tau = time_range(tp, ts, deltat)
 
     # Repeat end point to prevent boundary effects
     pady = np.pad(stf_amps, (0, tau.size), mode='edge')
-    convy = fftconvolve(pady, tau)[:-tau.size] * deltat
-
-    before = time_to_index(tp, deltat)
-    after = total_len - (before + convy.size)
-
-    return np.pad(
-        convy,
-        pad_width=(before, after),
-        mode='constant',
-        constant_values=(0.0, convy[-1]))
+    return fftconvolve(pady, tau)[:-tau.size] * deltat
 
 
 class BaseHIFullScenario(Object):
@@ -406,13 +369,13 @@ class DisplacementHIFullScenario(BaseHIFullScenario):
         Returns
         -------
         ds : :py:class:`xarray.Dataset` object
-            Displacements measured in (x=North, y=East, z=Down)
+            Displacements, measured in m, in (x, y, z)=(North, East, Down)
             Cartesian coordinate system. The Dataset keys are
-            `'F', 'I', 'N', 'total'`. Each key is mapped to a 3-D array
-            of shape `(n_receivers, 3, n_times)`. The dimesion names of
-            each 3-D array are `'i_receiver'`, `'axis'` and `'time'`.
-            The indices of the `'axis'` dimension represent
-            (0, 1, 2)->(North, East, Down).
+            `{'F', 'I', 'N', 'total'}`. Each key is mapped to a 3-D
+            array, whose shape is `(n_receivers, 3, n_times)` and
+            dimesion names are `{'i_receiver', 'axis', 'time'}`.
+            The indices of the dimension `'axis'` represent
+            (0, 1, 2)->(x, y, z)=(North, East, Down).
 
         Notes
         -----
@@ -432,11 +395,6 @@ class DisplacementHIFullScenario(BaseHIFullScenario):
         self._cache_distance_reciprocals(
             dists_3d[:, np.newaxis, np.newaxis], exponents=(2, 4))
 
-        # Radiation-patterns
-        rp_u = rpcalc_disp_from_mt(
-            source.pyrocko_moment_tensor().m(), cosine_vecs,
-            far=far, intermed=intermed, near=near)
-
         # Time-dependent seismic moment, M(t). It should be normalised
         # to one, otherwise the source magnitude becomes meaningless.
         ramp_stf = SmoothRampSTF(duration=stf_duration, anchor=-1.0)
@@ -446,31 +404,62 @@ class DisplacementHIFullScenario(BaseHIFullScenario):
         gaus_stf = GaussianSTF(duration=stf_duration, anchor=-1.0)
         _, Ddot = gaus_stf.discretize_t(self.deltat, 0.0, scale=False)
 
-        # P- and S-wave travel times (flattened arrays)
-        tp_all = self._calc_ptimes(dists_3d=dists_3d)
-        ts_all = self._calc_stimes(dists_3d=dists_3d)
+        # P- and S-wave travel times and indices (flattened arrays)
+        tp_values = self._calc_ptimes(dists_3d=dists_3d)
+        tp_indices = time_to_index(tp_values, self.deltat)
 
-        # Number of time samples (longest waveform)
-        ts_max = ts_all.max()
-        data_len = time_to_index(ts_max, self.deltat) + D.size
+        ts_values = self._calc_stimes(dists_3d=dists_3d)
+        ts_indices = time_to_index(ts_values, self.deltat)
 
-        c = self._recips
-        deltat = self.deltat
+        # Num. of time samples (longest waveform)
+        data_len = ts_indices.max() + D.size
+
+        # ----------
         n_rec = dists_3d.size
+
+        # STF values, arrays of shape (n_rec, 1, data_len)
+        T_fp = np.zeros((n_rec, 1, data_len))
+        T_fs = np.zeros_like(T_fp)
+        T_ip = np.zeros_like(T_fp)
+        T_is = np.zeros_like(T_fp)
+        T_n = np.zeros_like(T_fp)
+
+        for i_rec in range(n_rec):
+            # Begin and end indices
+            beg_p = tp_indices[i_rec]
+            end_p = beg_p + D.size
+            beg_s = ts_indices[i_rec]
+            end_s = beg_s + D.size
+            # Far field
+            T_fp[i_rec, 0, beg_p:end_p] = Ddot
+            T_fp[i_rec, 0, end_p:] = Ddot[-1]
+            T_fs[i_rec, 0, beg_s:end_s] = Ddot
+            T_fs[i_rec, 0, end_s:] = Ddot[-1]
+            # Intermediate field
+            T_ip[i_rec, 0, beg_p:end_p] = D
+            T_ip[i_rec, 0, end_p:] = D[-1]
+            T_is[i_rec, 0, beg_s:end_s] = D
+            T_is[i_rec, 0, end_s:] = D[-1]
+            # Near field
+            convy = _convolve_stf(
+                tp_values[i_rec], ts_values[i_rec], D, self.deltat)
+            stop_n = beg_p + convy.size
+            T_n[i_rec, 0, beg_p:stop_n] = convy
+            T_n[i_rec, 0, stop_n:] = convy[-1]
+
+        # ----------
+        c = self._recips
+
+        # Radiation-patterns
+        rp_u = rpcalc_disp_from_mt(
+            source.pyrocko_moment_tensor().m(), cosine_vecs,
+            far=far, intermed=intermed, near=near)
 
         # Far-field displacement (u_f ∝ 1/r)
         if far is True:
-
             # Radiation patterns, arrays of shape (n_rec, 3, 1)
             A_fp = rp_u['FP'].values[..., np.newaxis]
             A_fs = rp_u['FS'].values[..., np.newaxis]
-
-            # STF values, arrays of shape (n_rec, 1, data_len)
-            T_fp = np.zeros((n_rec, 1, data_len), dtype=np.float64)
-            T_fs = np.zeros_like(T_fp)
-            for i_rec in range(n_rec):
-                T_fp[i_rec] = pad_stf(tp_all[i_rec], Ddot, deltat, data_len)
-                T_fs[i_rec] = pad_stf(ts_all[i_rec], Ddot, deltat, data_len)
 
             u_fp = +c['1/4πρ'] * c['1/α']**3 * c['1/r'] * A_fp * T_fp
             u_fs = -c['1/4πρ'] * c['1/β']**3 * c['1/r'] * A_fs * T_fs
@@ -485,12 +474,6 @@ class DisplacementHIFullScenario(BaseHIFullScenario):
             A_ip = rp_u['IP'].values[..., np.newaxis]
             A_is = rp_u['IS'].values[..., np.newaxis]
 
-            T_ip = np.zeros((n_rec, 1, data_len), dtype=np.float64)
-            T_is = np.zeros_like(T_ip)
-            for i_rec in range(n_rec):
-                T_ip[i_rec] = pad_stf(tp_all[i_rec], D, deltat, data_len)
-                T_is[i_rec] = pad_stf(ts_all[i_rec], D, deltat, data_len)
-
             u_ip = +c['1/4πρ'] * c['1/α']**2 * c['1/r2'] * A_ip * T_ip
             u_is = -c['1/4πρ'] * c['1/β']**2 * c['1/r2'] * A_is * T_is
 
@@ -503,11 +486,6 @@ class DisplacementHIFullScenario(BaseHIFullScenario):
 
             A_n = rp_u['N'].values[..., np.newaxis]
 
-            T_n = np.zeros((n_rec, 1, data_len), dtype=np.float64)
-            for i_rec in range(n_rec):
-                T_n[i_rec] = convolve_stf(
-                    tp_all[i_rec], ts_all[i_rec], D, deltat, data_len)
-
             u_n = +c['1/4πρ'] * c['1/r4'] * A_n * T_n
         else:
             u_n = np.zeros((n_rec, 3, data_len), dtype=np.float64)
@@ -515,8 +493,9 @@ class DisplacementHIFullScenario(BaseHIFullScenario):
         # Total-field displacement
         u_total = u_f + u_i + u_n
 
+        # ----------
         # Save results into a `xr.DataSet` with following dimensions and
-        # coordinates. Each array is of shape (n_rec, 3, data_len).
+        # coordinates. Each array is of shape (n_rec, 3, data_len)
         dims = ['i_receiver', 'axis', 'time']
         coords = {
             'axis': ['x', 'y', 'z'],
@@ -562,11 +541,11 @@ class StrainHIFullScenario(BaseHIFullScenario):
         Returns
         -------
         ds : :py:class:`xarray.Dataset` object
-            Longitudinal strains (along cable axis) as an `xr.Dataset`.
-            The Dataset keys are 'F', 'IF', 'IN', 'N' and 'total'. Each
-            key is mapped to a 2-D array of shape `(n_channels, n_times)`.
-            The dimesion names of each 2-D array are `'i_receiver'` and
-            `'time'`.
+            Longitudinal strains measured *along the cable axis*.
+            The Dataset keys are `{'F', 'IF', 'IN', 'N', 'total'}`.
+            Each key is mapped to a 2-D array, whose shape is
+            `(n_channels, n_times)` and dimesion names are
+            `{'i_receiver', 'time'}`.
 
         Notes
         -----
@@ -584,6 +563,70 @@ class StrainHIFullScenario(BaseHIFullScenario):
         self._cache_distance_reciprocals(
             dists_3d[:, np.newaxis], exponents=(2, 3, 5))
 
+        # Time-dependent seismic moment, M(t). It should be normalised
+        # to one, otherwise the source magnitude becomes meaningless.
+        ramp_stf = SmoothRampSTF(duration=stf_duration, anchor=-1.0)
+        _, D = ramp_stf.discretize_t(self.deltat, 0.0, scale=False)
+
+        # Seismic moment-rate, dM(t)/dt
+        gaus_stf = GaussianSTF(duration=stf_duration, anchor=-1.0)
+        _, Ddot = gaus_stf.discretize_t(self.deltat, 0.0, scale=False)
+
+        # Time-derivative of the moment rate, d²M(t)/dt²
+        zcros_stf = ZeroCrossingSTF(duration=stf_duration, anchor=-1.0)
+        _, Dddot = zcros_stf.discretize_t(self.deltat, 0.0, scale=False)
+
+        # P- and S-wave travel times and indices (flattened arrays)
+        tp_values = self._calc_ptimes(dists_3d=dists_3d)
+        tp_indices = time_to_index(tp_values, self.deltat)
+
+        ts_values = self._calc_stimes(dists_3d=dists_3d)
+        ts_indices = time_to_index(ts_values, self.deltat)
+
+        # Num. of time samples (longest waveform)
+        data_len = ts_indices.max() + D.size
+
+        # ----------
+        n_rec = dists_3d.size
+
+        # STF values, arrays of shape (n_rec, data_len)
+        T_fp = np.zeros((n_rec, data_len))
+        T_fs = np.zeros_like(T_fp)
+        T_ifp = np.zeros_like(T_fp)
+        T_ifs = np.zeros_like(T_fp)
+        T_inp = np.zeros_like(T_fp)
+        T_ins = np.zeros_like(T_fp)
+        T_n = np.zeros_like(T_fp)
+
+        for i_rec in range(n_rec):
+            # Begin and end indices
+            beg_p = tp_indices[i_rec]
+            end_p = beg_p + D.size
+            beg_s = ts_indices[i_rec]
+            end_s = beg_s + D.size
+            # Far field
+            T_fp[i_rec, beg_p:end_p] = Dddot
+            T_fp[i_rec, end_p:] = Dddot[-1]
+            T_fs[i_rec, beg_s:end_s] = Dddot
+            T_fs[i_rec, end_s:] = Dddot[-1]
+            # Intermediate-far field
+            T_ifp[i_rec, beg_p:end_p] = Ddot
+            T_ifp[i_rec, end_p:] = Ddot[-1]
+            T_ifs[i_rec, beg_s:end_s] = Ddot
+            T_ifs[i_rec, end_s:] = Ddot[-1]
+            # Intermediate-near field
+            T_inp[i_rec, beg_p:end_p] = D
+            T_inp[i_rec, end_p:] = D[-1]
+            T_ins[i_rec, beg_s:end_s] = D
+            T_ins[i_rec, end_s:] = D[-1]
+            # Near field
+            convy = _convolve_stf(
+                tp_values[i_rec], ts_values[i_rec], D, self.deltat)
+            end_n = beg_p + convy.size
+            T_n[i_rec, beg_p:end_n] = convy
+            T_n[i_rec, end_n:] = convy[-1]
+
+        # ----------
         # We assume that the DAS cable is oriented in the `x` direction.
         # The axial strain along the cable can be deduced as the normal
         # strain, `εₓₓ`. Therefore, we use a rotated coordinate system
@@ -607,46 +650,14 @@ class StrainHIFullScenario(BaseHIFullScenario):
             mt_symmat_rotated, cosine_vecs_rotated, far=far,
             intermed_far=intermed_far, intermed_near=intermed_near, near=near)
 
-        # Time-dependent seismic moment, M(t). It should be normalised
-        # to one, otherwise the source magnitude becomes meaningless.
-        ramp_stf = SmoothRampSTF(duration=stf_duration, anchor=-1.0)
-        _, D = ramp_stf.discretize_t(self.deltat, 0.0, scale=False)
-
-        # Seismic moment-rate, dM(t)/dt
-        gaus_stf = GaussianSTF(duration=stf_duration, anchor=-1.0)
-        _, Ddot = gaus_stf.discretize_t(self.deltat, 0.0, scale=False)
-
-        # Time-derivative of the moment rate, d²M(t)/dt²
-        zcros_stf = ZeroCrossingSTF(duration=stf_duration, anchor=-1.0)
-        _, Dddot = zcros_stf.discretize_t(self.deltat, 0.0, scale=False)
-
-        # P- and S-wave travel times (flattened arrays)
-        tp_all = self._calc_ptimes(dists_3d=dists_3d)
-        ts_all = self._calc_stimes(dists_3d=dists_3d)
-
-        # Number of time samples (longest waveform)
-        ts_max = ts_all.max()
-        data_len = time_to_index(ts_max, self.deltat) + D.size
-
-        c = self._recips
-        deltat = self.deltat
-        n_rec = dists_3d.size
-
         # ----------
+        c = self._recips
 
         # Far-field strain (ε_f ∝ 1/r)
         if far is True:
-
             # Store only `εₓₓ` radiations, arrays of shape (n_rec, 1)
             B_fp = rp_e['FP'].values[:, [0]]
             B_fs = rp_e['FS'].values[:, [0]]
-
-            # STF values, arrays of shape (n_rec, data_len)
-            T_fp = np.zeros((n_rec, data_len), dtype=np.float64)
-            T_fs = np.zeros_like(T_fp)
-            for i_rec in range(n_rec):
-                T_fp[i_rec] = pad_stf(tp_all[i_rec], Dddot, deltat, data_len)
-                T_fs[i_rec] = pad_stf(ts_all[i_rec], Dddot, deltat, data_len)
 
             ε_fp = -c['1/4πρ'] * c['1/α']**4 * c['1/r'] * B_fp * T_fp
             ε_fs = +c['1/4πρ'] * c['1/β']**4 * c['1/r'] * B_fs * T_fs
@@ -661,12 +672,6 @@ class StrainHIFullScenario(BaseHIFullScenario):
             B_ifp = rp_e['IFP'].values[:, [0]]
             B_ifs = rp_e['IFS'].values[:, [0]]
 
-            T_ifp = np.zeros((n_rec, data_len), dtype=np.float64)
-            T_ifs = np.zeros_like(T_ifp)
-            for i_rec in range(n_rec):
-                T_ifp[i_rec] = pad_stf(tp_all[i_rec], Ddot, deltat, data_len)
-                T_ifs[i_rec] = pad_stf(ts_all[i_rec], Ddot, deltat, data_len)
-
             ε_ifp = +c['1/4πρ'] * c['1/α']**3 * c['1/r2'] * B_ifp * T_ifp
             ε_ifs = -c['1/4πρ'] * c['1/β']**3 * c['1/r2'] * B_ifs * T_ifs
 
@@ -680,12 +685,6 @@ class StrainHIFullScenario(BaseHIFullScenario):
             B_inp = rp_e['INP'].values[:, [0]]
             B_ins = rp_e['INS'].values[:, [0]]
 
-            T_inp = np.zeros((n_rec, data_len), dtype=np.float64)
-            T_ins = np.zeros_like(T_inp)
-            for i_rec in range(n_rec):
-                T_inp[i_rec] = pad_stf(tp_all[i_rec], D, deltat, data_len)
-                T_ins[i_rec] = pad_stf(ts_all[i_rec], D, deltat, data_len)
-
             ε_inp = +c['1/4πρ'] * c['1/α']**2 * c['1/r3'] * B_inp * T_inp
             ε_ins = -c['1/4πρ'] * c['1/β']**2 * c['1/r3'] * B_ins * T_ins
 
@@ -698,18 +697,12 @@ class StrainHIFullScenario(BaseHIFullScenario):
 
             B_n = rp_e['N'].values[:, [0]]
 
-            T_n = np.zeros((n_rec, data_len), dtype=np.float64)
-            for i_rec in range(n_rec):
-                T_n[i_rec] = convolve_stf(
-                    tp_all[i_rec], ts_all[i_rec], D, deltat, data_len)
-
             ε_n = +c['1/4πρ'] * c['1/r5'] * B_n * T_n
         else:
             ε_n = np.zeros((n_rec, data_len), dtype=np.float64)
 
         # ----------
-
-        # Dimension and coordinate names when saving strains into `xr.DataSet`
+        # Dimension and coordinate names when saving to `xr.DataSet`
         dims = ['i_receiver', 'time']
         coords = {'time': np.arange(data_len) * self.deltat}
 
@@ -741,6 +734,7 @@ class StrainHIFullScenario(BaseHIFullScenario):
                 'total': (dims, x_out.sum(axis=0).squeeze(axis=0))}
         else:
             # Average point strains over separate GLs
+
             # n_rec = n_channels * n_grids_per_gl
             x_in = np.stack([ε_f, ε_if, ε_in, ε_n], axis=0)
             x_out = np.mean(

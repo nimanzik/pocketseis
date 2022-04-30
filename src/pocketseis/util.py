@@ -31,7 +31,7 @@ def time_to_index(t, deltat, snap=np.round):
     idx : int or ndarray
         Indexes of the time value(s).
     """
-    return snap(t / deltat).astype(np.int)
+    return snap(np.asarray(t) / deltat).astype('int')
 
 
 def time_range(tmin, tmax, deltat):
