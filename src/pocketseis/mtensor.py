@@ -52,44 +52,44 @@ def symmat_to_tuple6(m):
 
 def moment_to_magnitude(moment):
     """
-    Converts scalar moment, $M_0$, to moment magnitude, $M_w$ using
+    Converts scalar moment, M0, to moment magnitude, Mw using
     eq. 9.73, Shearer (2009)::
 
         $M_w = \frac{2}{3} [log_10 M_0 - 9.1]$,
 
-    where, $M_0$ is scalar moment in Nm.
+    where, M0 is scalar moment in Nm.
 
     Parameters
     ----------
     moment : float
-        Scalar moment, $M_0$. Unit: Nm.
+        Scalar moment, M0. Unit: Nm.
 
     Returns
     -------
     mag : float
-        Moment magnitude (Mw).
+        Moment magnitude, Mw.
     """
     return (2.0 / 3.0) * (np.log10(moment) - 9.1)
 
 
 def magnitude_to_moment(mag):
     """
-    Converts moment magnitude, $M_w$, to scalar moment, $M_0$ using
+    Converts moment magnitude, Mw, to scalar moment, M0 using
     eq. 9.73, Shearer (2009)::
 
         $M_w = \frac{2}{3} [log_10 M_0 - 9.1]$,
 
-    where, $M_0$ is scalar moment in Nm.
+    where, M0 is scalar moment in Nm.
 
     Parameters
     ----------
     mag : float
-        Moment magnitude, $M_w$.
+        Moment magnitude, Mw.
 
     Returns
     -------
     moment : float
-        Scalar moment, , $M_0$. Unit: Nm.
+        Scalar moment, M0. Unit: Nm.
     """
     return 10**(1.5 * mag + 9.1)
 
@@ -129,7 +129,7 @@ def denormalize_mt(m_norm, moment):
         Unit-norm moment tensor as plain symmetric 2-D array.
 
     moment : float
-        Scalar moment, $M_0$. Unit: Nm.
+        Scalar moment, M0. Unit: Nm.
 
     Returns
     -------
@@ -198,7 +198,7 @@ def euclidean_distance(m1, m2):
 
 def random_mt(n_src=1, method='S5', seed=None):
     """
-    Generate uniform distribution of unit-norm moment tensors.
+    Generate uniform distribution of *unit-norm* moment tensors.
 
     Parameters
     ----------
@@ -260,8 +260,8 @@ def random_mt(n_src=1, method='S5', seed=None):
         a_xz = c3 * np.sin(two_pi * x5) / sqrt2
 
         mt_list = []
-        for a_tuple in zip(a_xx, a_yy, a_zz, a_xy, a_xz, a_yz):
-            m = pmt.symmat6(*a_tuple)
+        for a6 in zip(a_xx, a_yy, a_zz, a_xy, a_xz, a_yz):
+            m = tuple6_to_symmat(a6)
             mt_list.append(pmt.MomentTensor(m=m))
 
     # Method 1 of section 9 of Tape & Tape (2015, GJI)
@@ -274,14 +274,14 @@ def random_mt(n_src=1, method='S5', seed=None):
         vhats[3:] /= sqrt2
 
         mt_list = []
-        for a_tuple in vhats.T:
-            m = pmt.symmat6(*a_tuple)
+        for a6 in vhats.T:
+            m = tuple6_to_symmat(a6)
             mt_list.append(pmt.MomentTensor(m=m))
 
     # Method 2 of section 9 of Tape & Tape (2015, GJI)
     else:
         # Differ the import of MTQTSource to avoid circular import
-        from pocketseis.source import MTQTSource
+        from pocketseis.hifull.source import MTQTSource
 
         us = rng.uniform(low=0.0, high=0.75 * np.pi, size=n_src)
         vs = rng.uniform(low=-1.0 / 3.0, high=1.0 / 3.0, size=n_src)
@@ -295,6 +295,65 @@ def random_mt(n_src=1, method='S5', seed=None):
             mt_list.append(pmt.MomentTensor(m=np.asmatrix(m)))
 
     return mt_list
+
+
+def sdr_to_mt(strike, dip, rake, magnitude):
+    """
+    Define the moment tensor in the Cartesian coordinate system
+    (x=North, y=East, z=Down) in terms of the faulting geometry angles
+    strike, dip and rake. All angles should be given in degrees.
+
+    Parameters
+    ----------
+    strike : float
+        Strike angle in degrees, measured clockwise from North, [0, 360].
+    dip : float
+        Dip angle in degrees, to the right side of the strike direction,
+        measured from the horizontal to the vertical, [0, 90].
+    rake : float
+        Rake (slip) angle in degrees, measured on the fault plane from
+        the strike direction counter-clockwise to the slip vector,
+        [0, 360].
+        * 0 -> left-lateral
+        * 90 -> reverse faulting
+        * 180 -> right-lateral
+        * 270 -> normal faulting
+    magnitude : float
+        The moment magnitude of the earthquake, Mw.
+
+    Returns
+    -------
+    m : ndarray
+        Seismic moment tensor in the Cartesian coordinate system
+        (x=North, y=East, z=Down) returned as a symmetric 2-D array.
+    """
+
+    M0 = pmt.magnitude_to_moment(magnitude)
+    ϕ = np.deg2rad(strike)
+    δ = np.deg2rad(dip)
+    λ = np.deg2rad(rake)
+
+    sin_ϕ = np.sin(ϕ)
+    cos_ϕ = np.cos(ϕ)
+    sin_2ϕ = np.sin(2.0 * ϕ)
+    cos_2ϕ = np.cos(2.0 * ϕ)
+
+    sin_δ = np.sin(δ)
+    cos_δ = np.cos(δ)
+    sin_2δ = np.sin(2.0 * δ)
+    cos_2δ = np.cos(2.0 * δ)
+
+    sin_λ = np.sin(λ)
+    cos_λ = np.cos(λ)
+
+    Mxx = -M0 * (sin_δ * cos_λ * sin_2ϕ + sin_2δ * sin_λ * sin_ϕ**2)
+    Myy = +M0 * (sin_δ * cos_λ * sin_2ϕ - sin_2δ * sin_λ * cos_ϕ**2)
+    Mzz = +M0 * sin_2δ * sin_λ
+    Mxy = +M0 * (sin_δ * cos_λ * cos_2ϕ + 0.5 * sin_2δ * sin_λ * sin_2ϕ)
+    Mxz = -M0 * (cos_δ * cos_λ * cos_ϕ + cos_2δ * sin_λ * sin_ϕ)
+    Myz = -M0 * (cos_δ * cos_λ * sin_ϕ - cos_2δ * sin_λ * cos_ϕ)
+
+    return tuple6_to_symmat((Mxx, Myy, Mzz, Mxy, Mxz, Myz))
 
 
 __all__ = [
