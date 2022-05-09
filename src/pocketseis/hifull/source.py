@@ -1,6 +1,5 @@
 """
-Module containing customized seismic sources, source-time functions
-(seismic moment and moment-rate functions) that can be used by the
+Module containing customized seismic sources that can be used by the
 :py:class:`pyrocko.gf.seismosizer.Engine` module to calculate synthetic
 seismograms.
 """

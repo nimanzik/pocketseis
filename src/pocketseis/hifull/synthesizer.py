@@ -1,6 +1,4 @@
-from functools import partial
 import math
-import time
 
 import numpy as np
 from scipy.signal import fftconvolve

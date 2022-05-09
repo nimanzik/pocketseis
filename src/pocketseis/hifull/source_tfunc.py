@@ -1,3 +1,11 @@
+"""
+Module containing customized source-time functions (seismic moment and
+moment-rate functions) that can be used by the source classes inherited
+from :py:class:`pyrocko.gf.seismosizer.Source` module to calculate
+synthetic seismograms.
+"""
+
+
 import numpy as np
 
 from pyrocko import gf
