@@ -122,7 +122,7 @@ def _set_aspect_equal(ax3d):
     x_range = ax3d.xy_dataLim.width
     y_range = ax3d.xy_dataLim.height
     z_range = ax3d.zz_dataLim.width
-    ax3d.set_box_aspect((x_range, y_range, z_range*0.925))   # Bug in mpl?
+    ax3d.set_box_aspect((x_range, y_range, z_range * 0.925))   # Bug in mpl?
 
 
 def plot_radiation_pattern(

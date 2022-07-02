@@ -28,11 +28,11 @@ class BaseDASCable(Object):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.grid_spacing = None
-        self.grid_locs = []
+        self.grid_locs = list()
 
     @property
     def n_channels(self):
-        return int(round(self.nominal_len / self.channel_spacing)) + 1
+        return int(round(self.nominal_len / self.channel_spacing) + 1)
 
     @property
     def effective_len(self):
@@ -55,12 +55,12 @@ class BaseDASCable(Object):
                 math.remainder(self.channel_spacing, new_grid_spacing), 0.0,
                 rel_tol=0.0, abs_tol=1e-9):
             # Some grids overlap. We can use moving average
-            n_grids = int(round(self.effective_len / new_grid_spacing)) + 1
+            n_grids = int(round(self.effective_len / new_grid_spacing) + 1)
             grid_offsets = np.linspace(0.0, self.effective_len, n_grids)
         else:
             # Grids do not overlap. Must take average over separate GLs
             # In this case, n_grids = n_channels * n_grids_per_gl
-            n_grids_per_gl = int(round(self.gauge_len / new_grid_spacing)) + 1
+            n_grids_per_gl = int(round(self.gauge_len / new_grid_spacing) + 1)
             a = np.arange(self.n_channels)[:, None] * self.channel_spacing
             b = np.linspace(0.0, self.gauge_len, n_grids_per_gl)
             grid_offsets = (a + b).flatten()
@@ -80,10 +80,9 @@ class SurfaceDASCable(BaseDASCable):
         super().__init__(**kwargs)
         # Cable depth below surface (positive downward). Unit: [m]
         self.depth = self.nominal_refloc.depth
-        self.effective_refloc = self._get_effective_refloc()
-        self.channel_locs = self._get_channel_locs()
 
-    def _get_effective_refloc(self):
+    @property
+    def effective_refloc(self):
         """
         Geographical location of point `x=(first_channel - GL/2)`, where
         `GL` is the gauge length.
@@ -100,7 +99,8 @@ class SurfaceDASCable(BaseDASCable):
 
         return pmodel.Location(lat=lat0, lon=lon0, depth=self.depth)
 
-    def _get_channel_locs(self):
+    @property
+    def channel_locs(self):
         """
         Returns
         -------
@@ -189,10 +189,9 @@ class SurfaceDASCable(BaseDASCable):
 class BoreholeDASCable(BaseDASCable):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.effective_refloc = self._get_effective_refloc()
-        self.channel_locs = self._get_channel_locs()
 
-    def _get_effective_refloc(self):
+    @property
+    def effective_refloc(self):
         """
         Geographical location of point `x=(first_channel - GL/2)`, where
         `GL` is the gauge length.
@@ -205,7 +204,8 @@ class BoreholeDASCable(BaseDASCable):
         depth0 = self.nominal_refloc.depth - (self.gauge_len / 2.0)
         return pmodel.Location(lat=lat0, lon=lon0, depth=depth0)
 
-    def _get_channel_locs(self):
+    @property
+    def channel_locs(self):
         """
         Returns
         -------
@@ -231,10 +231,9 @@ class BoreholeDASCable(BaseDASCable):
         """
         grid_offsets = self._get_grid_offsets(new_grid_spacing)
         grid_depths = self.effective_refloc.depth + grid_offsets
-        grid_lats = np.full_like(
-            grid_offsets, self.effective_refloc.effective_lat)
-        grid_lons = np.full_like(
-            grid_offsets, self.effective_refloc.effective_lon)
+        lat0, lon0 = self.effective_refloc.effective_latlon
+        grid_lats = np.full_like(grid_offsets, lat0)
+        grid_lons = np.full_like(grid_offsets, lon0)
 
         grid_locs = [
             pmodel.Location(lat=glat, lon=glon, depth=gdepth)
@@ -242,6 +241,29 @@ class BoreholeDASCable(BaseDASCable):
 
         self.grid_spacing = new_grid_spacing
         self.grid_locs = grid_locs
+
+    def get_event_relative_data(self, event, level='channel'):
+        if level not in (valid_levels := ('channel', 'grid')):
+            raise ValueError(f"Valid levels are {valid_levels}")
+
+        if level == 'grid':
+            assert self.grid_spacing is not None, (
+                "cannot set relative data for grids when 'grid_spacing' "
+                "is None. Run 'set_grid_spacing()' first")
+
+        lat0, lon0 = self.nominal_refloc.effective_latlon
+
+        if level == 'channel':
+            rlats = np.full_like(self.channel_locs, lat0)
+            rlons = np.full_like(self.channel_locs, lon0)
+            rdepths = [c.depth for c in self.channel_locs]
+        else:
+            rlats = np.full_like(self.grid_locs, lat0)
+            rlons = np.full_like(self.grid_locs, lon0)
+            rdepths = [g.depth for g in self.grid_locs]
+
+        return calc_relative_data(
+            *event.effective_latlon, event.depth, rlats, rlons, rdepths)
 
 
 __all__ = ['SurfaceDASCable', 'BoreholeDASCable']

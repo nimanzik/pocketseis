@@ -2,17 +2,16 @@ from functools import partial
 import unittest
 
 import numpy as np
-from scipy.integrate import simps, cumtrapz
 
 from pocketseis.hifull import source as ps
-from pocketseis.mtensor import tuple6_to_symmat
+from pocketseis.moment_tensor import tuple6_to_symmat
 
 
 class SourceTestCase(unittest.TestCase):
 
     def test_source_mtqt(self):
         # Following sample calculation of uniform moment tensor
-        # parametrization is taken from Appendix A, Tape & Tape (2015).
+        # parametrization is taken from Appendix A, Tape & Tape (2015)
         mtqt_src = ps.MTQTSource(
             u=3.0 * np.pi / 8.0,
             v=-1.0 / 9.0,
@@ -27,15 +26,15 @@ class SourceTestCase(unittest.TestCase):
         aac(mtqt_src.theta, 0.723)
 
         rotmat_U_ref = np.array([
-            [-587, -809, 37],
-            [807, -588, -51],
-            [63, 0, 998]], dtype=np.float64) * 0.001
+            [-0.587, -0.809, +0.037],
+            [+0.807, -0.588, -0.051],
+            [+0.063, +0.000, +0.998]], dtype=np.float64)
         aac(mtqt_src.rotmat_U, rotmat_U_ref)
 
-        m9_nwu_ref = tuple6_to_symmat((196, 455, -651, -397, -52, 71)) * 0.001
+        m9_nwu_ref = tuple6_to_symmat((196, 455, -651, -397, -52, 71)) * 1e-3
         aac(mtqt_src.m9_nwu, m9_nwu_ref)
 
-        m9_ned_ref = tuple6_to_symmat((196, 455, -651, 397, 52, 71)) * 0.001
+        m9_ned_ref = tuple6_to_symmat((196, 455, -651, 397, 52, 71)) * 1e-3
         aac(mtqt_src.m9_ned, m9_ned_ref)
 
 

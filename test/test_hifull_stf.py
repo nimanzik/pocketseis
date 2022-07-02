@@ -4,7 +4,7 @@ import unittest
 import numpy as np
 from scipy.integrate import simps, cumtrapz
 
-from pocketseis.hifull import source_tfunc
+from pocketseis.hifull.stf import SmoothRampSTF, GaussianSTF, ZeroCrossingSTF
 
 
 class SourceTestCase(unittest.TestCase):
@@ -19,7 +19,7 @@ class SourceTestCase(unittest.TestCase):
 
     def test_stf_smooth_ramp(self):
 
-        stf = source_tfunc.SmoothRampSTF(duration=1 * self.deltat)
+        stf = SmoothRampSTF(duration=1 * self.deltat)
         t, a = stf.discretize_t(deltat=self.deltat, tref=self.tref)
         self.assertEqual(a.max(), self.deltat)
         self.assert_allclose(
@@ -27,7 +27,7 @@ class SourceTestCase(unittest.TestCase):
             0.5 * self.deltat)
 
         for duration in self.durations:
-            stf = source_tfunc.SmoothRampSTF(duration=duration, anchor=0.0)
+            stf = SmoothRampSTF(duration=duration, anchor=0.0)
             t, a = stf.discretize_t(deltat=self.deltat, tref=self.tref)
             self.assertEqual(a.max(), self.deltat)
             self.assert_allclose(
@@ -37,14 +37,14 @@ class SourceTestCase(unittest.TestCase):
     def test_stf_gaussian(self):
 
         for duration in self.durations:
-            stf = source_tfunc.GaussianSTF(duration=duration, anchor=0.0)
+            stf = GaussianSTF(duration=duration, anchor=0.0)
             t, a = stf.discretize_t(deltat=self.deltat, tref=self.tref)
             self.assert_allclose(simps(a, x=t), self.deltat)
 
     def test_stf_zero_crossing(self):
 
         for duration in self.durations:
-            stf = source_tfunc.ZeroCrossingSTF(duration=duration, anchor=0.0)
+            stf = ZeroCrossingSTF(duration=duration, anchor=0.0)
             t, a = stf.discretize_t(deltat=self.deltat, tref=self.tref)
             self.assert_allclose(simps(a, x=t), 0.0)
             np.testing.assert_array_less(

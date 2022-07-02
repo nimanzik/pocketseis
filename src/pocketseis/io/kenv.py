@@ -9,7 +9,7 @@ import xarray as xr
 
 from pyrocko.util import setup_logging, str_to_time
 
-from pocketseis.util import isleap, time2index
+from pocketseis.util import isleap, time_to_index
 
 
 setup_logging('read_kenv_5min')
@@ -95,7 +95,7 @@ def read_kenv_5min(zip_fname, as_xarray=True):
                         ae, an, av = map(float, toks[8:11])
 
                         # There might be gaps in data
-                        idx = time2index(t_rel, deltat)
+                        idx = time_to_index(t_rel, deltat)
                         has_data.add(idx)
                         data_daily[idx] = (t_abs, ae, an, av)
 

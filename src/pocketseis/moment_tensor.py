@@ -2,6 +2,8 @@
 Utility functions for seismic moment tensor.
 """
 
+import math
+
 import numpy as np
 
 from pyrocko import moment_tensor as pmt
@@ -53,31 +55,35 @@ def symmat_to_tuple6(m):
 def moment_to_magnitude(moment):
     """
     Converts scalar moment, M0, to moment magnitude, Mw using
-    eq. 9.73, Shearer (2009)::
+    eq. 9.73, Shearer (2009):
 
-        $M_w = \frac{2}{3} [log_10 M_0 - 9.1]$,
+    ..math::
+
+        $M_w = \\frac{2}{3} [log_10 M_0 - 9.1]$,
 
     where, M0 is scalar moment in Nm.
 
     Parameters
     ----------
     moment : float
-        Scalar moment, M0. Unit: Nm.
+        Scalar moment, M0. Unit: Nm
 
     Returns
     -------
     mag : float
         Moment magnitude, Mw.
     """
-    return (2.0 / 3.0) * (np.log10(moment) - 9.1)
+    return (np.log10(moment) - 9.1) / 1.5
 
 
 def magnitude_to_moment(mag):
     """
     Converts moment magnitude, Mw, to scalar moment, M0 using
-    eq. 9.73, Shearer (2009)::
+    eq. 9.73, Shearer (2009):
 
-        $M_w = \frac{2}{3} [log_10 M_0 - 9.1]$,
+    ..math::
+
+        $M_w = \\frac{2}{3} [log_10 M_0 - 9.1]$,
 
     where, M0 is scalar moment in Nm.
 
@@ -89,7 +95,7 @@ def magnitude_to_moment(mag):
     Returns
     -------
     moment : float
-        Scalar moment, M0. Unit: Nm.
+        Scalar moment, M0. Unit: Nm
     """
     return 10**(1.5 * mag + 9.1)
 
@@ -106,18 +112,18 @@ def normalize_mt(m):
 
     Returns
     -------
-    m_norm : ndarray, shape (3, 3)
+    mhat : ndarray, shape (3, 3)
         Normalized moment tensor.
     """
     m = np.asarray(m, dtype=np.float64)
     if m.ndim != 2 or m.shape != (3, 3):
         raise ValueError("'m' must be an array of shape (3, 3)")
 
-    m_norm = m / np.linalg.norm(m, ord='fro')
-    return m_norm
+    mhat = m / np.linalg.norm(m, ord='fro')
+    return mhat
 
 
-def denormalize_mt(m_norm, moment):
+def denormalize_mt(mhat, moment):
     """
     Construct norm-preserving moment tensor from a unit-norm moment
     tensor and its total moment following Silver and Jordan (1982) and
@@ -125,7 +131,7 @@ def denormalize_mt(m_norm, moment):
 
     Parameters
     ----------
-    m_norm : ndarray, shape (3, 3)
+    mhat : ndarray, shape (3, 3)
         Unit-norm moment tensor as plain symmetric 2-D array.
 
     moment : float
@@ -145,11 +151,11 @@ def denormalize_mt(m_norm, moment):
     .. [2] Shearer, P. M. (2019). Introduction to seismology. Cambridge
        university press.
     """
-    m_norm = np.asarray(m_norm, dtype=np.float64)
-    if m_norm.ndim != 2 or m_norm.shape != (3, 3):
-        raise ValueError("'m_norm' must be an array of shape (3, 3)")
+    mhat = np.asarray(mhat, dtype=np.float64)
+    if mhat.ndim != 2 or mhat.shape != (3, 3):
+        raise ValueError("'mhat' must be an array of shape (3, 3)")
 
-    return np.sqrt(2.0) * moment * m_norm
+    return np.sqrt(2.0) * moment * mhat
 
 
 def angular_distance(m1, m2):
@@ -166,11 +172,16 @@ def angular_distance(m1, m2):
     -------
     chi : float
         Angular distance between two moment tensors `m1` and `m2`.
+        Unit: rad
     """
-    m1m2_inner = np.trace(np.dot(m1.T, m2))
-    m1_norm = np.linalg.norm(m1, ord='fro')
-    m2_norm = np.linalg.norm(m2, ord='fro')
-    chi = np.arccos(m1m2_inner / (m1_norm * m2_norm))
+    m1m2_inner = np.trace(m1.T @ m2)
+    mhat1 = np.linalg.norm(m1, ord='fro')
+    mhat2 = np.linalg.norm(m2, ord='fro')
+    denom = mhat1 * mhat2
+    if math.isclose(m1m2_inner, denom, rel_tol=0.0, abs_tol=1e-9):
+        return 0.0
+
+    chi = np.arccos(m1m2_inner / denom)
     return chi
 
 
@@ -190,10 +201,10 @@ def euclidean_distance(m1, m2):
     Returns
     -------
     d : float
-        Euclidean distance between two moment tensors `m1` and `m2`.
+        Euclidean distance between two moment tensors `m1` and `m2`
+        (unitless).
     """
-    d = np.sin(angular_distance(m1, m2) / 2.0)
-    return d
+    return np.sin(angular_distance(m1, m2) / 2.0)
 
 
 def random_mt(n_src=1, method='S5', seed=None):
@@ -357,11 +368,6 @@ def sdr_to_mt(strike, dip, rake, magnitude):
 
 
 __all__ = [
-    'tuple6_to_symmat',
-    'symmat_to_tuple6',
-    'moment_to_magnitude',
-    'magnitude_to_moment',
-    'normalize_mt',
-    'denormalize_mt',
-    'angular_distance',
-    'euclidean_distance']
+    'tuple6_to_symmat', 'symmat_to_tuple6', 'moment_to_magnitude',
+    'magnitude_to_moment', 'normalize_mt', 'denormalize_mt',
+    'angular_distance', 'euclidean_distance', 'random_mt', 'sdr_to_mt']

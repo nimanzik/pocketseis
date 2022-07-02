@@ -6,9 +6,9 @@ Matlab scripts in ZMAP package.
 import numpy as np
 
 
-def calc_abs_fmd(mags, bin_size=0.1):
+def absolute_fmd(mags, bin_size=0.1):
     """
-    Calculates absolute frequency-magnitude distribution (Abs. FMD).
+    Calculates absolute frequency-magnitude distribution (FMD).
 
     Parameters
     ----------
@@ -28,13 +28,12 @@ def calc_abs_fmd(mags, bin_size=0.1):
     half_bin = bin_size * 0.5
     edges = np.append(centers - half_bin, centers[-1] + half_bin)
     freqs, _ = np.histogram(mags, bins=edges)
-
     return (freqs, centers)
 
 
-def calc_cum_fmd(abs_fmd):
+def cumulative_fmd(abs_fmd):
     """
-    Calculate cumulative frequency-magnitude distribution (Cum. FMD).
+    Calculate cumulative frequency-magnitude distribution (FMD).
 
     Parameters
     ----------
@@ -50,7 +49,7 @@ def calc_cum_fmd(abs_fmd):
     return np.cumsum(abs_fmd[::-1])[::-1]
 
 
-def calc_mc(mags, bin_size=0.1, correction=0.2):
+def cutoff_mag(mags, bin_size=0.1, correction=0.2):
     """
     Calculate magnitude of completeness (cutoff magnitude) using maximum
     curvature method (Wiemer & Wyss, 2000).
@@ -80,15 +79,14 @@ def calc_mc(mags, bin_size=0.1, correction=0.2):
        western United States, and Japan. Bulletin of the Seismological
        Society of America, 90(4), 859-869.
     """
-
     mags = np.asarray(mags)
-    freqs, centers = calc_abs_fmd(mags, bin_size)
+    freqs, centers = absolute_fmd(mags, bin_size)
     mc = centers[np.argmax(freqs)]   # Maximum Curvature method
     mc = round((mc + correction) / bin_size) * bin_size
     return mc
 
 
-def calculate_ba_value(mags, mc, bin_size=0.1):
+def gutenberg_richter_ba(mags, mc, bin_size=0.1):
     """
     Calculate the b-value and a-value of the Gutenberg-Richter law by
     using maximum-likelihood method of Aki (1965) modified by
@@ -116,16 +114,16 @@ def calculate_ba_value(mags, mc, bin_size=0.1):
        of the b value in the Gutenberg–Richter distribution. Geophysical
        Journal International, 199(3), 1765-1771.
     """
-
     mags = np.asarray(mags)
     mags_sel = mags[mags >= mc]
     half_bin = bin_size * 0.5
     b_val = np.log10(np.e) / (mags_sel.mean() - (mc - half_bin))
     a_val = np.log10(mags_sel.size) + b_val * mc
-
     return (b_val, a_val)
 
 
-def gutenberg_richter(m, b_val, a_val):
-    """Gutenberg-Richter law"""
+def gutenberg_richter_law(m, b_val, a_val):
+    """
+    Gutenberg-Richter law
+    """
     return 10.0**(a_val - b_val * np.asarray(m))

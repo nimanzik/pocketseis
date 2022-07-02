@@ -32,14 +32,15 @@ def calc_relative_data(lat0, lon0, depth0, lats, lons, depths):
     lons = np.asarray(lons, dtype=np.float64)
     depths = np.asarray(depths, dtype=np.float64)
 
-    deltazs = depths - depth0
+    # (x, y)=(North, East)
     deltaxs, deltays = od.latlon_to_ne_numpy(lat0, lon0, lats, lons)
+    deltazs = depths - depth0
 
     # Position vectors relative to reference loc., array of shape (n_points, 3)
     pos_vecs = np.stack([deltaxs, deltays, deltazs], axis=1)
     assert pos_vecs.shape == (lats.size, 3)
 
-    # 3-D distances from reference loc., array of shape (n_points,)
+    # 3-D distances from reference location
     dists_3d = np.sqrt(np.sum(pos_vecs**2, axis=1, keepdims=True))
 
     # Unit vectors of direction cosines

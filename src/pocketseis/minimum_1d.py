@@ -37,11 +37,11 @@ def empirical_density(vp):
     rho = 1.6612 * a1 - 0.4721 * a2 + 0.0671 * a3 - 0.0043 * a4 + 0.000106 * a5
 
     # Convert [g/cm^3] -> [kg/m^3]
-    rho *= 1000.0
+    rho *= 1e+3
     return rho
 
 
-def calc_qp(qs, vp, vs):
+def p_qfactor(qs, vp, vs):
     """
     Calculate Qp from Qs, Vp and Vs assuming a purly compressive or
     dilational processes (i.e. Bulk quality factor, Qk, is infinity) by
@@ -66,7 +66,7 @@ def calc_qp(qs, vp, vs):
     return 0.75 * (vp / vs)**2 * qs
 
 
-def calc_qs(qp, vp, vs):
+def s_qfactor(qp, vp, vs):
     """
     Calculate Qs from Qp, Vp and Vs assuming a purly compressive or
     dilational processes (i.e. Bulk quality factor, Qk, is infinity) by
@@ -99,9 +99,9 @@ def _read_minimum1d_model_fh(f, zbot=None, qp=None, qs=None):
         rho = empirical_density(vp)
 
         if qp and not qs:
-            qs = calc_qs(qp, vp, vs)
+            qs = s_qfactor(qp, vp, vs)
         elif qs and not qp:
-            qp = calc_qp(qs, vp, vs)
+            qp = p_qfactor(qs, vp, vs)
 
         if mabove:
             from_scanlines.append((z, mabove, None))

@@ -5,17 +5,18 @@ from pyrocko.util import time_to_str as tts
 
 from .mpl_util import transform_data2axes, sci_tickformatter
 from .colors import darken_color
-from pocketseis.mtensor import magnitude_to_moment
+from pocketseis.moment_tensor import magnitude_to_moment
 from pocketseis.util import round_day
-from pocketseis.zmap import calc_abs_fmd, calc_cum_fmd, gutenberg_richter
+from pocketseis.zmap import absolute_fmd, cumulative_fmd, gutenberg_richter_law
 
 
 KM2M = 1.0e+3
 M2KM = 1.0e-3
 
 
-def plot_cake_model(ax, earth_model, depth_min=None, depth_max=None,
-                    vp_kwargs=None, vs_kwargs=None, invert_yaxis=True):
+def plot_cake_model(
+        ax, earth_model, depth_min=None, depth_max=None,
+        vp_kwargs=None, vs_kwargs=None, invert_yaxis=True):
     """
     Helper function to plot a layered velocity model.
 
@@ -84,8 +85,9 @@ def plot_cake_models(ax, earth_models, **kwargs):
         ax.invert_yaxis()
 
 
-def plot_fmd(ax, mags, mc, b_val, a_val, bin_size=0.1, axis_label='both',
-             legend=True, mc_indicator=True):
+def plot_fmd(
+        ax, mags, mc, b_val, a_val, bin_size=0.1, axis_label='both',
+        legend=True, mc_indicator=True):
     """
     Plot frequency-magnitude distribution (FMD).
 
@@ -118,8 +120,8 @@ def plot_fmd(ax, mags, mc, b_val, a_val, bin_size=0.1, axis_label='both',
     c3 = '#777777'
 
     mags = np.asarray(mags)
-    abs_freqs, centers = calc_abs_fmd(mags, bin_size)
-    cum_freqs = calc_cum_fmd(abs_freqs)
+    abs_freqs, centers = absolute_fmd(mags, bin_size)
+    cum_freqs = cumulative_fmd(abs_freqs)
 
     # Cumulative FMD
     p1 = ax.plot(
@@ -135,7 +137,7 @@ def plot_fmd(ax, mags, mc, b_val, a_val, bin_size=0.1, axis_label='both',
     # Fitted GR model
     bot, top = ax.get_ylim()
     ax.plot(
-        centers, np.log10(gutenberg_richter(centers, b_val, a_val)),
+        centers, np.log10(gutenberg_richter_law(centers, b_val, a_val)),
         'k--', lw=2, alpha=0.8)
     ax.set_ylim(bot, top)
 

@@ -10,15 +10,14 @@ from scipy.interpolate import interp1d
 from pyrocko import gf, moment_tensor as pmt
 from pyrocko.guts import Float
 
-from pocketseis import rotation, mtensor
-from .meta import HIFullMaterial
+from pocketseis import rotation, moment_tensor as psmt
+from .meta import HifullMaterial
 
 
 guts_prefix = 'pf'
 
 
-# MTQTSource:: map ``beta`` parameter to ``u`` variable
-# using eq. 24a,Tape & Tape (2015)
+# Map β parameter to `u` variable using eq. 24a of Tape & Tape (2015)
 BETA = np.linspace(0.0, np.pi, 5000)
 U = 0.75 * BETA - 0.5 * np.sin(2.0 * BETA) + 0.0625 * np.sin(4.0 * BETA)
 INTERP = interp1d(U, BETA)
@@ -301,11 +300,11 @@ class MTQTSource(gf.SourceWithMagnitude):
 
     @property
     def moment(self):
-        return mtensor.magnitude_to_moment(self.magnitude)
+        return psmt.magnitude_to_moment(self.magnitude)
 
     @moment.setter
     def moment(self, value):
-        self.magnitude = mtensor.moment_to_magnitude(value)
+        self.magnitude = psmt.moment_to_magnitude(value)
 
     def pyrocko_moment_tensor(self):
         """
@@ -316,7 +315,7 @@ class MTQTSource(gf.SourceWithMagnitude):
             event applied.
         """
         # From unit-norm to norm-preserving moment tensor (NED convention)
-        m9_denorm = mtensor.denormalize_mt(self.m9_ned, self.moment)
+        m9_denorm = psmt.denormalize_mt(self.m9_ned, self.moment)
         return pmt.MomentTensor(m=np.asmatrix(m9_denorm))
 
     def pyrocko_event(self, **kwargs):
@@ -355,6 +354,10 @@ class MTQTSource(gf.SourceWithMagnitude):
 
 
 class TensileSource(gf.Source):
+    """
+    The coordinate system x, y and z is directed to the North, East and
+    Downward, respectively.
+    """
     strike = Float.T(
         default=0.0,
         help='Strike direction measured clockwise from North. Unit: [deg]')
@@ -376,15 +379,14 @@ class TensileSource(gf.Source):
     length = Float.T(
         default=1.0,
         help='Length of rectangular source area. Unit [m]')
-
     width = Float.T(
         default=1.0,
         help='Width of rectangular source area. Unit: [m]')
     dislocation = Float.T(
         default=1.0,
-        help='The magnitude of dislocation vector. Unit: [m]')
-    material = HIFullMaterial.T(
-        default=HIFullMaterial(),
+        help='The magnitude of dislocation vector, u. Unit: [m]')
+    material = HifullMaterial.T(
+        default=HifullMaterial(),
         help='Isotropic elastic material')
 
     def __init__(self, **kwargs):
@@ -419,7 +421,9 @@ class TensileSource(gf.Source):
         return self._potency_tensor
 
     def pyrocko_moment_tensor(self):
-        """Moment tensor in an isotropic medium."""
+        """
+        Moment tensor in an isotropic medium.
+        """
 
         D = self.potency_tensor
         Dkk = D.trace()
