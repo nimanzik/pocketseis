@@ -3,12 +3,12 @@ import numpy as np
 from pyrocko import orthodrome as od
 
 
-def calc_relative_data(lat0, lon0, depth0, lats, lons, depths):
+def compute_relative_data(lat0, lon0, depth0, lats, lons, depths):
     """
     Calculates the 3-D distances and directional cosines of a set of
     observation points (potential receivers) from a reference location
     (potential seismic source) in a Cartesian coordinate system defined
-    as (x, y, z)=(North, East, Down).
+    as `(x, y, z)=(North, East, Down)`.
 
     Parameters
     ----------
@@ -26,11 +26,11 @@ def calc_relative_data(lat0, lon0, depth0, lats, lons, depths):
         position vectors are in Cartesian coordinate system (i.e.
         vectors whose initial and terminal are event and observation
         points, respectively). The idices of the second dimension
-        represent (0, 1, 2)->(x, y, z)=(North, East, Down) axes.
+        represent `(0, 1, 2)->(x, y, z)=(North, East, Down)` axes.
     """
-    lats = np.asarray(lats, dtype=np.float64)
-    lons = np.asarray(lons, dtype=np.float64)
-    depths = np.asarray(depths, dtype=np.float64)
+    lats = np.atleast_1d(lats).astype(np.float64)
+    lons = np.atleast_1d(lons).astype(np.float64)
+    depths = np.atleast_1d(depths).astype(np.float64)
 
     # (x, y)=(North, East)
     deltaxs, deltays = od.latlon_to_ne_numpy(lat0, lon0, lats, lons)
@@ -147,4 +147,4 @@ def ellipsoid_distance(lat1, lon1, lat2, lon2):
     return d
 
 
-__all__ = ['calc_relative_data', 'WGS84', 'ellipsoid_distance']
+__all__ = ['compute_relative_data', 'WGS84', 'ellipsoid_distance']

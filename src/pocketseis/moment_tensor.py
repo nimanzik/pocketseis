@@ -18,7 +18,7 @@ def tuple6_to_symmat(a):
     ----------
     a : tuple of 6 float
         A tuple of six independent components of moment tensor in
-        (M11, M22, M33, M12, M13, M23) order.
+        `(M11, M22, M33, M12, M13, M23)` order.
 
     Returns
     -------
@@ -26,10 +26,10 @@ def tuple6_to_symmat(a):
         Plain seismic moment tensor as symmetric 2-D array.
     """
     a11, a22, a33, a12, a13, a23 = a
-
-    return np.array([[a11, a12, a13],
-                     [a12, a22, a23],
-                     [a13, a23, a33]], dtype=np.float64)
+    return np.array([
+        [a11, a12, a13],
+        [a12, a22, a23],
+        [a13, a23, a33]], dtype=np.float64)
 
 
 def symmat_to_tuple6(m):
@@ -43,7 +43,7 @@ def symmat_to_tuple6(m):
     -------
     a : tuple of 6 float
         A tuple of six independent components of moment tensor in
-        (M11, M22, M33, M12, M13, M23) order.
+        `(M11, M22, M33, M12, M13, M23)` order.
     """
     m = np.asarray(m, dtype=np.float64)
     assert m.shape == (3, 3), 'moment tensor is a symmetric 3-by-3 array'
@@ -54,8 +54,8 @@ def symmat_to_tuple6(m):
 
 def moment_to_magnitude(moment):
     """
-    Converts scalar moment, M0, to moment magnitude, Mw using
-    eq. 9.73, Shearer (2009):
+    Converts scalar moment, `M0`, to moment magnitude, `Mw` using
+    eq. 9.73 of Shearer (2009):
 
     ..math::
 
@@ -78,8 +78,8 @@ def moment_to_magnitude(moment):
 
 def magnitude_to_moment(mag):
     """
-    Converts moment magnitude, Mw, to scalar moment, M0 using
-    eq. 9.73, Shearer (2009):
+    Converts moment magnitude, `Mw`, to scalar moment, `M0` using
+    eq. 9.73 of Shearer (2009):
 
     ..math::
 
@@ -207,7 +207,7 @@ def euclidean_distance(m1, m2):
     return np.sin(angular_distance(m1, m2) / 2.0)
 
 
-def random_mt(n_src=1, method='S5', seed=None):
+def generate_random_mt(n_src=1, method='S5', seed=None):
     """
     Generate uniform distribution of *unit-norm* moment tensors.
 
@@ -311,7 +311,7 @@ def random_mt(n_src=1, method='S5', seed=None):
 def sdr_to_mt(strike, dip, rake, magnitude):
     """
     Define the moment tensor in the Cartesian coordinate system
-    (x=North, y=East, z=Down) in terms of the faulting geometry angles
+    `(x=North, y=East, z=Down)` in terms of the faulting geometry angles
     strike, dip and rake. All angles should be given in degrees.
 
     Parameters
@@ -367,7 +367,15 @@ def sdr_to_mt(strike, dip, rake, magnitude):
     return tuple6_to_symmat((Mxx, Myy, Mzz, Mxy, Mxz, Myz))
 
 
-__all__ = [
-    'tuple6_to_symmat', 'symmat_to_tuple6', 'moment_to_magnitude',
-    'magnitude_to_moment', 'normalize_mt', 'denormalize_mt',
-    'angular_distance', 'euclidean_distance', 'random_mt', 'sdr_to_mt']
+__all__ = """
+    tuple6_to_symmat
+    symmat_to_tuple6
+    moment_to_magnitude
+    magnitude_to_moment
+    normalize_mt
+    denormalize_mt
+    angular_distance
+    euclidean_distance
+    generate_random_mt
+    sdr_to_mt
+""".split()

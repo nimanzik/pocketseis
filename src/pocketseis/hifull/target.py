@@ -5,7 +5,7 @@ import numpy as np
 from pyrocko import model as pmodel, orthodrome as od
 from pyrocko.guts import Float, Object
 
-from pocketseis.compass import calc_relative_data
+from pocketseis.compass import compute_relative_data
 
 
 guts_prefix = 'pf'
@@ -182,7 +182,7 @@ class SurfaceDASCable(BaseDASCable):
             rdepths = np.full_like(self.grid_locs, self.depth)
             rlats, rlons = zip(*[g.effective_latlon for g in self.grid_locs])
 
-        return calc_relative_data(
+        return compute_relative_data(
             *event.effective_latlon, event.depth, rlats, rlons, rdepths)
 
 
@@ -262,7 +262,7 @@ class BoreholeDASCable(BaseDASCable):
             rlons = np.full_like(self.grid_locs, lon0)
             rdepths = [g.depth for g in self.grid_locs]
 
-        return calc_relative_data(
+        return compute_relative_data(
             *event.effective_latlon, event.depth, rlats, rlons, rdepths)
 
 

@@ -97,7 +97,7 @@ def cartesian_rotmat(theta, axis):
     Parameters
     ----------
     theta : float or array-like
-        Angle(s) of rotation in **radians**.
+        Angle(s) of rotation in unit [rad].
     axis : {'x', 'y', 'z'}
         One of the axis of the Cartesian coordinate system, through wich
         the rotation is performed.
@@ -198,7 +198,7 @@ def ne2rt_rotmat(bazi):
     Parameters
     ----------
     bazi : float or array-like
-        Backazimuth in **degrees**. This is the angle measured clockwise
+        Backazimuth in unit [deg]. This is the angle measured clockwise
         from the North and is defined as the angle between vector pointing
         from the station to the North and the vector pointing from the
         station to the source.
@@ -222,8 +222,7 @@ def ne2rt_rotmat(bazi):
     sb = np.sin(bazi)
     cb = np.cos(bazi)
 
-    rotmat_2d = np.array([[-cb, +sb],
-                          [-sb, -cb]])
+    rotmat_2d = np.array([[-cb, +sb], [-sb, -cb]])
 
     if np.ndim(rotmat_2d) == 3:
         # Reshape to (n_bazi, 2, 2)
@@ -242,13 +241,13 @@ def zne2lqt_rotmat(bazi, incid):
     Parameters
     ----------
     bazi : float or array-like
-        Backazimuth in **degrees**. This is the angle measured clockwise
+        Backazimuth in unit [deg]. This is the angle measured clockwise
         from the North and is defined as the angle between vector pointing
         from the station to the North and the vector pointing from the
         station to the source.
 
     incid : float or array-like
-        Angle of incidence in **degrees**. This is the angle from vertical
+        Angle of incidence in unit [deg]. This is the angle from vertical
         at which an incoming ray arrives. For example, a ray arriving from
         directly below the station would have an angle of incidence of
         zero degrees.
@@ -278,9 +277,9 @@ def zne2lqt_rotmat(bazi, incid):
     si = np.sin(incid)
     ci = np.cos(incid)
 
-    rotmat_3d = np.array([[ci, si, 0.0],
-                          [-si * cb, ci * cb, sb],
-                          [-si * sb, ci * sb, -cb]])
+    rotmat_3d = np.array([
+        [ci, si, 0.0], [-si * cb, ci * cb, sb], [-si * sb, ci * sb, -cb]])
+
     if rotmat_3d.ndim == 3:
         # Reshape to (n_bazi, 3, 3) or (n_incid, 3, 3)
         rotmat_3d = np.moveaxis(rotmat_3d, 2, 0)

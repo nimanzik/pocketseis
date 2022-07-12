@@ -52,7 +52,7 @@ def time_range(tmin, tmax, deltat):
     """
     start = round(tmin / deltat) * deltat
     stop = round(tmax / deltat) * deltat
-    num = int(round((stop - start) / deltat)) + 1
+    num = int(round((stop - start) / deltat) + 1)
     return np.linspace(start, stop, num, axis=-1)
 
 
@@ -87,9 +87,9 @@ def isleap(year):
     """
     Returns True if year is a leap year, otherwise False.
 
-    A leap year is exactly divisible by 4 except for century years (years
-    ending with 00). A century year is a leap year if it is perfectly
-    divisible by 400.
+    A leap year is exactly divisible by 4 except for century years
+    (years ending with 00). A century year is a leap year if it is
+    perfectly divisible by 400.
 
     Notes
     -----

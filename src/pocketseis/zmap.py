@@ -22,7 +22,7 @@ def absolute_fmd(mags, bin_size=0.1):
     mag_min = round(mags.min() / bin_size) * bin_size
     mag_max = round(mags.max() / bin_size) * bin_size
 
-    n_centers = int(round((mag_max - mag_min) / bin_size)) + 1
+    n_centers = int(round((mag_max - mag_min) / bin_size) + 1)
     centers = np.linspace(mag_min, mag_max, n_centers)
 
     half_bin = bin_size * 0.5
@@ -81,7 +81,8 @@ def cutoff_mag(mags, bin_size=0.1, correction=0.2):
     """
     mags = np.asarray(mags)
     freqs, centers = absolute_fmd(mags, bin_size)
-    mc = centers[np.argmax(freqs)]   # Maximum Curvature method
+    # Maximum Curvature method
+    mc = centers[np.argmax(freqs)]
     mc = round((mc + correction) / bin_size) * bin_size
     return mc
 

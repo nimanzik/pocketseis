@@ -7,7 +7,7 @@ from pyrocko.guts import Float, Object
 from torch.nn.functional import avg_pool2d
 import xarray as xr
 
-from pocketseis.compass import calc_relative_data
+from pocketseis.compass import compute_relative_data
 from pocketseis.hifull import radiation_pattern as rp
 from pocketseis.rotation import cartesian_rotmat
 from pocketseis.util import time_to_index, time_range
@@ -132,7 +132,7 @@ class DispFromMTHifullScenario(BaseHifullScenario):
 
     def process(
             self, source, receivers, stf,
-            far=True, intermed=True, near=True):
+            near=True, intermed=True, far=True):
         """
         Parameters
         ----------
@@ -150,7 +150,7 @@ class DispFromMTHifullScenario(BaseHifullScenario):
         ds : :py:class:`xarray.Dataset` object
             Displacements, measured in m, in (x, y, z)=(North, East, Down)
             Cartesian coordinate system. The Dataset keys are
-            `{'F', 'I', 'N', 'total'}`. Each key is mapped to a 3-D
+            `{'N', 'I', 'F', 'total'}`. Each key is mapped to a 3-D
             array, whose shape is `(n_receivers, 3, n_times)` and
             dimesion names are `{'i_receiver', 'axis', 'time'}`.
             The indices of the dimension `'axis'` represent
@@ -167,7 +167,7 @@ class DispFromMTHifullScenario(BaseHifullScenario):
         event = source.pyrocko_event()
         a = [rec.effective_latlon + (rec.depth,) for rec in receivers]
         rlats, rlons, rdepths = zip(*a)
-        dists_3d, cosine_vecs = calc_relative_data(
+        dists_3d, cosine_vecs = compute_relative_data(
             *event.effective_latlon, event.depth, rlats, rlons, rdepths)
 
         # Cache powers of 3-D distances, arrays of shape (n_rec, 1, 1)
@@ -242,18 +242,14 @@ class DispFromMTHifullScenario(BaseHifullScenario):
             source.pyrocko_moment_tensor().m(), cosine_vecs,
             far=far, intermed=intermed, near=near)
 
-        # Far-field displacement (u_f ∝ 1/r)
-        if far is True:
-            # Radiation patterns, arrays of shape (n_rec, 3, 1)
-            A_fp = rp_u['FP'].values[..., np.newaxis]
-            A_fs = rp_u['FS'].values[..., np.newaxis]
+        # Near-field displacement (u_n ∝ 1/r⁵)
+        if near is True:
 
-            u_fp = +c['1/4πρ'] * c['1/α']**3 * c['1/r'] * A_fp * T_fp
-            u_fs = -c['1/4πρ'] * c['1/β']**3 * c['1/r'] * A_fs * T_fs
+            A_n = rp_u['N'].values[..., np.newaxis]
 
-            u_f = u_fp + u_fs
+            u_n = +c['1/4πρ'] * c['1/r4'] * A_n * T_n
         else:
-            u_f = np.zeros((n_rec, 3, data_len), dtype=np.float64)
+            u_n = np.zeros((n_rec, 3, data_len), dtype=np.float64)
 
         # Intermediate-field displacement (u_i ∝ 1/r²)
         if intermed is True:
@@ -268,17 +264,21 @@ class DispFromMTHifullScenario(BaseHifullScenario):
         else:
             u_i = np.zeros((n_rec, 3, data_len), dtype=np.float64)
 
-        # Near-field displacement (u_n ∝ 1/r⁵)
-        if near is True:
+        # Far-field displacement (u_f ∝ 1/r)
+        if far is True:
+            # Radiation patterns, arrays of shape (n_rec, 3, 1)
+            A_fp = rp_u['FP'].values[..., np.newaxis]
+            A_fs = rp_u['FS'].values[..., np.newaxis]
 
-            A_n = rp_u['N'].values[..., np.newaxis]
+            u_fp = +c['1/4πρ'] * c['1/α']**3 * c['1/r'] * A_fp * T_fp
+            u_fs = -c['1/4πρ'] * c['1/β']**3 * c['1/r'] * A_fs * T_fs
 
-            u_n = +c['1/4πρ'] * c['1/r4'] * A_n * T_n
+            u_f = u_fp + u_fs
         else:
-            u_n = np.zeros((n_rec, 3, data_len), dtype=np.float64)
+            u_f = np.zeros((n_rec, 3, data_len), dtype=np.float64)
 
         # Total-field displacement
-        u_total = u_f + u_i + u_n
+        u_total = u_n + u_i + u_f
 
         # ----------
         # Save results into a `xr.DataSet` with following dimensions and
@@ -290,8 +290,8 @@ class DispFromMTHifullScenario(BaseHifullScenario):
         data_vars = {
             k: (dims, v)
             for k, v in zip(
-                ['F', 'I', 'N', 'total'],
-                [u_f, u_i, u_n, u_total])}
+                ['N', 'I', 'F', 'total'],
+                [u_n, u_i, u_f, u_total])}
 
         return xr.Dataset(data_vars=data_vars, coords=coords)
 
@@ -310,8 +310,8 @@ class StrainFromMTHifullScenario(BaseHifullScenario):
     """
 
     def process(
-            self, source, cable, stf, far=True, intermed_far=True,
-            intermed_near=True, near=True):
+            self, source, cable, stf, near=True, near_intermed=True,
+            intermed_far=True, far=True):
         """
         Parameters
         ----------
@@ -329,7 +329,7 @@ class StrainFromMTHifullScenario(BaseHifullScenario):
         -------
         ds : :py:class:`xarray.Dataset` object
             Longitudinal strains measured *along the cable axis*.
-            The Dataset keys are `{'F', 'IF', 'IN', 'N', 'total'}`.
+            The Dataset keys are `{'N', 'NI', 'IF', 'F', 'total'}`.
             Each key is mapped to a 2-D array, whose shape is
             `(n_channels, n_times)` and dimesion names are
             `{'i_receiver', 'time'}`.
@@ -444,10 +444,45 @@ class StrainFromMTHifullScenario(BaseHifullScenario):
         # Radiation-pattern factors
         rp_e = rp.normal_strain_from_mt(
             mt_symmat_rotated, cosine_vecs_rotated, far=far,
-            intermed_far=intermed_far, intermed_near=intermed_near, near=near)
+            intermed_far=intermed_far, near_intermed=near_intermed, near=near)
 
         # ----------
         c = self._recips
+
+        # Near-field strain (ε_n ∝ 1/r⁵)
+        if near is True:
+
+            B_n = rp_e['N'].values[:, [0]]
+
+            ε_n = +c['1/4πρ'] * c['1/r5'] * B_n * T_n
+        else:
+            ε_n = np.zeros((n_rec, data_len), dtype=np.float64)
+
+        # Near-to-intermediate field strain (ε_ni ∝ 1/r³)
+        if near_intermed is True:
+
+            B_nip = rp_e['NIP'].values[:, [0]]
+            B_nis = rp_e['NIS'].values[:, [0]]
+
+            ε_nip = +c['1/4πρ'] * c['1/α']**2 * c['1/r3'] * B_nip * T_inp
+            ε_nis = -c['1/4πρ'] * c['1/β']**2 * c['1/r3'] * B_nis * T_ins
+
+            ε_ni = ε_nip + ε_nis
+        else:
+            ε_ni = np.zeros((n_rec, data_len), dtype=np.float64)
+
+        # Intermediate-to-far field strain (ε_if ∝ 1/r²)
+        if intermed_far is True:
+
+            B_ifp = rp_e['IFP'].values[:, [0]]
+            B_ifs = rp_e['IFS'].values[:, [0]]
+
+            ε_ifp = +c['1/4πρ'] * c['1/α']**3 * c['1/r2'] * B_ifp * T_ifp
+            ε_ifs = -c['1/4πρ'] * c['1/β']**3 * c['1/r2'] * B_ifs * T_ifs
+
+            ε_if = ε_ifp + ε_ifs
+        else:
+            ε_if = np.zeros((n_rec, data_len), dtype=np.float64)
 
         # Far-field strain (ε_f ∝ 1/r)
         if far is True:
@@ -462,41 +497,6 @@ class StrainFromMTHifullScenario(BaseHifullScenario):
         else:
             ε_f = np.zeros((n_rec, data_len), dtype=np.float64)
 
-        # Intermediate-far field strain (ε_if ∝ 1/r²)
-        if intermed_far is True:
-
-            B_ifp = rp_e['IFP'].values[:, [0]]
-            B_ifs = rp_e['IFS'].values[:, [0]]
-
-            ε_ifp = +c['1/4πρ'] * c['1/α']**3 * c['1/r2'] * B_ifp * T_ifp
-            ε_ifs = -c['1/4πρ'] * c['1/β']**3 * c['1/r2'] * B_ifs * T_ifs
-
-            ε_if = ε_ifp + ε_ifs
-        else:
-            ε_if = np.zeros((n_rec, data_len), dtype=np.float64)
-
-        # Intermediate-near field strain (ε_in ∝ 1/r³)
-        if intermed_near is True:
-
-            B_inp = rp_e['INP'].values[:, [0]]
-            B_ins = rp_e['INS'].values[:, [0]]
-
-            ε_inp = +c['1/4πρ'] * c['1/α']**2 * c['1/r3'] * B_inp * T_inp
-            ε_ins = -c['1/4πρ'] * c['1/β']**2 * c['1/r3'] * B_ins * T_ins
-
-            ε_in = ε_inp + ε_ins
-        else:
-            ε_in = np.zeros((n_rec, data_len), dtype=np.float64)
-
-        # Near-field strain (ε_n ∝ 1/r⁵)
-        if near is True:
-
-            B_n = rp_e['N'].values[:, [0]]
-
-            ε_n = +c['1/4πρ'] * c['1/r5'] * B_n * T_n
-        else:
-            ε_n = np.zeros((n_rec, data_len), dtype=np.float64)
-
         # ----------
         # Dimension and coordinate names when saving to `xr.DataSet`
         dims = ['i_receiver', 'time']
@@ -506,12 +506,11 @@ class StrainFromMTHifullScenario(BaseHifullScenario):
                 math.remainder(cable.channel_spacing, cable.grid_spacing), 0.0,
                 rel_tol=0.0, abs_tol=1e-9):
             # Apply moving average
-            # print('Apply moving average')
 
             # Reshape `εₓₓ` arrays (n_rec, data_len)->(1, n_rec, data_len)
             # Stack all along axis=0, x_in.shape == (4, 1, n_rec, data_len)
             x_in = np.stack(
-                [e[np.newaxis, :] for e in (ε_f, ε_if, ε_in, ε_n)],
+                [e[np.newaxis, :] for e in (ε_n, ε_ni, ε_if, ε_f)],
                 axis=0)
 
             # Kernel height is number of grid *points* per GL
@@ -524,26 +523,25 @@ class StrainFromMTHifullScenario(BaseHifullScenario):
             x_out = x_out.numpy()
 
             data_vars = {
-                'F': (dims, x_out[0].squeeze(axis=0)),
-                'IF': (dims, x_out[1].squeeze(axis=0)),
-                'IN': (dims, x_out[2].squeeze(axis=0)),
-                'N': (dims, x_out[3].squeeze(axis=0)),
+                'N': (dims, x_out[0].squeeze(axis=0)),
+                'NI': (dims, x_out[1].squeeze(axis=0)),
+                'IF': (dims, x_out[2].squeeze(axis=0)),
+                'F': (dims, x_out[3].squeeze(axis=0)),
                 'total': (dims, x_out.sum(axis=0).squeeze(axis=0))}
         else:
             # Average point strains over separate GLs
-            # print('Average point strains over separate GLs')
 
             # n_rec = n_channels * n_grids_per_gl
-            x_in = np.stack([ε_f, ε_if, ε_in, ε_n], axis=0)
+            x_in = np.stack([ε_n, ε_ni, ε_if, ε_f], axis=0)
             x_out = np.mean(
                 np.stack(np.split(x_in, cable.n_channels, axis=1), axis=1),
                 axis=2)
 
             data_vars = {
-                'F': (dims, x_out[0]),
-                'IF': (dims, x_out[1]),
-                'IN': (dims, x_out[2]),
-                'N': (dims, x_out[3]),
+                'N': (dims, x_out[0]),
+                'NI': (dims, x_out[1]),
+                'IF': (dims, x_out[2]),
+                'F': (dims, x_out[3]),
                 'total': (dims, x_out.sum(axis=0))}
 
         return xr.Dataset(data_vars=data_vars, coords=coords)
