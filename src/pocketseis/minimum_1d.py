@@ -29,19 +29,17 @@ def empirical_density(vp):
     .. [2] Ludwig, W. J. (1970). Seismic refraction. The sea, 4, 53-84.
     """
     # Convert [m/s] -> [km/s]
-    a1 = vp * M2KM
-    a2 = a1 * a1
-    a3 = a2 * a1
-    a4 = a3 * a1
-    a5 = a4 * a1
-    rho = 1.6612 * a1 - 0.4721 * a2 + 0.0671 * a3 - 0.0043 * a4 + 0.000106 * a5
+    a = vp * M2KM
+    rho = (
+        1.6612 * a - 0.4721 * a**2
+        + 0.0671 * a**3 - 0.0043 * a**4 + 0.000106 * a**5)
 
     # Convert [g/cm^3] -> [kg/m^3]
     rho *= 1e+3
     return rho
 
 
-def p_qfactor(qs, vp, vs):
+def compute_qp(qs, vp, vs):
     """
     Calculate Qp from Qs, Vp and Vs assuming a purly compressive or
     dilational processes (i.e. Bulk quality factor, Qk, is infinity) by
@@ -66,7 +64,7 @@ def p_qfactor(qs, vp, vs):
     return 0.75 * (vp / vs)**2 * qs
 
 
-def s_qfactor(qp, vp, vs):
+def compute_qs(qp, vp, vs):
     """
     Calculate Qs from Qp, Vp and Vs assuming a purly compressive or
     dilational processes (i.e. Bulk quality factor, Qk, is infinity) by
@@ -91,7 +89,7 @@ def s_qfactor(qp, vp, vs):
     return qp / (0.75 * (vp / vs)**2)
 
 
-def _read_minimum1d_model_fh(f, zbot=None, qp=None, qs=None):
+def _read_minimum_1d_fh(f, zbot=None, qp=None, qs=None):
     from_scanlines = []
     mabove = None
     for line in f:
@@ -99,9 +97,9 @@ def _read_minimum1d_model_fh(f, zbot=None, qp=None, qs=None):
         rho = empirical_density(vp)
 
         if qp and not qs:
-            qs = s_qfactor(qp, vp, vs)
+            qs = compute_qs(qp, vp, vs)
         elif qs and not qp:
-            qp = p_qfactor(qs, vp, vs)
+            qp = compute_qp(qs, vp, vs)
 
         if mabove:
             from_scanlines.append((z, mabove, None))
@@ -119,7 +117,7 @@ def _read_minimum1d_model_fh(f, zbot=None, qp=None, qs=None):
         yield x
 
 
-def read_minimum1d_model(fn, zbot=None, qp=None, qs=None):
+def read_minimum_1d(fn, zbot=None, qp=None, qs=None):
     """
     Reader for minimum 1-D model style files containing multiple lines of
     three columns data, that are depth (in km), P-wave velocity (in km/s)
@@ -144,5 +142,5 @@ def read_minimum1d_model(fn, zbot=None, qp=None, qs=None):
     3-tuple of (depth, material, name).
     """
     with open(fn, 'r') as f:
-        for x in _read_minimum1d_model_fh(f, zbot=zbot, qp=qp, qs=qs):
+        for x in _read_minimum_1d_fh(f, zbot=zbot, qp=qp, qs=qs):
             yield x
