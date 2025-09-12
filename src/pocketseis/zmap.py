@@ -68,7 +68,7 @@ def calc_mc(mags, bin_size=0.1, correction=0.2):
         0.2 magnitude unit for gradually curved frequency-magnitude
         distributions.
 
-    returns
+    Returns
     -------
     mc : float
         Magnitude of completeness.
@@ -80,10 +80,9 @@ def calc_mc(mags, bin_size=0.1, correction=0.2):
        western United States, and Japan. Bulletin of the Seismological
        Society of America, 90(4), 859-869.
     """
-
     mags = np.asarray(mags)
     freqs, centers = calc_abs_fmd(mags, bin_size)
-    mc = centers[np.argmax(freqs)]   # Maximum Curvature method
+    mc = centers[np.argmax(freqs)]  # Maximum Curvature method
     mc = round((mc + correction) / bin_size) * bin_size
     return mc
 
@@ -116,7 +115,6 @@ def calculate_ba_value(mags, mc, bin_size=0.1):
        of the b value in the Gutenberg–Richter distribution. Geophysical
        Journal International, 199(3), 1765-1771.
     """
-
     mags = np.asarray(mags)
     mags_sel = mags[mags >= mc]
     half_bin = bin_size * 0.5
@@ -127,5 +125,5 @@ def calculate_ba_value(mags, mc, bin_size=0.1):
 
 
 def gutenberg_richter(m, b_val, a_val):
-    """Gutenberg-Richter law"""
-    return 10.0**(a_val - b_val * np.asarray(m))
+    """Gutenberg-Richter law."""
+    return 10.0 ** (a_val - b_val * np.asarray(m))

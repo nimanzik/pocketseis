@@ -1,12 +1,12 @@
 import numpy as np
-
 from pyrocko import orthodrome as od
 
 
 def calc_relative_data(lat0, lon0, depth0, lats, lons, depths):
-    """
-    Calculates the 3-D distances and directional cosines of a set of
-    observation points (potential receivers) from a reference location
+    """Calculate 3-D distances and directional cosines.
+
+    This function calculates the 3-D distances and directional cosines of a
+    set of observation points (potential receivers) from a reference location
     (potential seismic source) in a Cartesian coordinate system defined
     as (x, y, z)=(North, East, Down).
 
@@ -45,13 +45,11 @@ def calc_relative_data(lat0, lon0, depth0, lats, lons, depths):
     # Unit vectors of direction cosines
     cosine_vecs = pos_vecs / dists_3d
 
-    return (dists_3d, cosine_vecs)
+    return dists_3d, cosine_vecs
 
 
-class WGS84(object):
-    """
-    Earth reference ellipsoid parameters for WGS84 geodetic system.
-    """
+class WGS84:
+    """Earth reference ellipsoid parameters for WGS84 geodetic system."""
 
     def __init__(self):
         self.__a = 6378137.0
@@ -59,45 +57,35 @@ class WGS84(object):
 
     @property
     def a(self):
-        """
-        Semi-major axis in [m]
-        """
+        """Semi-major axis in [m]."""
         return self.__a
 
     @property
     def f(self):
-        """
-        Earth flattening factor
-        """
+        """Earth flattening factor."""
         return self.__f
 
     @property
     def b(self):
-        """
-        Semi-minor axis in [m]
-        """
+        """Semi-minor axis in [m]."""
         return self.__a * (1.0 - self.__f)
 
     @property
     def e2(self):
-        """
-        First eccentricity squared
-        """
+        """First eccentricity squared."""
         return self.__f * (2.0 - self.__f)
 
     @property
     def eprime2(self):
-        """
-        Second eccentricity squared
-        """
-        return self.__f * (2.0 - self.__f) / (1.0 - self.__f)**2
+        """Second eccentricity squared."""
+        return self.__f * (2.0 - self.__f) / (1.0 - self.__f) ** 2
 
 
 def ellipsoid_distance(lat1, lon1, lat2, lon2):
-    """
-    Approximate ellipsoid distance between two points using Vincenty's
-    formulae. Although it is called approximate, it is actually much
-    more accurate than the great circle calculation.
+    """Approximate ellipsoid distance between two points.
+
+    Uses Vincenty's formulae. Although it is called approximate, it is actually
+    much more accurate than the great circle calculation.
 
     Parameters
     ----------
@@ -113,7 +101,7 @@ def ellipsoid_distance(lat1, lon1, lat2, lon2):
 
     References
     ----------
-    .. [1] https://www.codeguru.com/cplusplus/geographic-distance-and-azimuth-calculations/   # noqa
+    .. [1] https://www.codeguru.com/cplusplus/geographic-distance-and-azimuth-calculations/
     .. [2] Jean Meeus (1998), Astronomical Algorithms, 2nd ed.
     """
     wgs = WGS84()
@@ -122,9 +110,9 @@ def ellipsoid_distance(lat1, lon1, lat2, lon2):
 
     lat1, lon1, lat2, lon2 = map(np.deg2rad, [lat1, lon1, lat2, lon2])
 
-    F = (lat1+lat2) * 0.5
-    G = (lat1-lat2) * 0.5
-    L = (lon1-lon2) * 0.5
+    F = (lat1 + lat2) * 0.5
+    G = (lat1 - lat2) * 0.5
+    L = (lon1 - lon2) * 0.5
 
     sinF, cosF = np.sin(F), np.cos(F)
     sinG, cosG = np.sin(G), np.cos(G)
@@ -134,16 +122,18 @@ def ellipsoid_distance(lat1, lon1, lat2, lon2):
     C = (cosG**2 * cosL**2) + (sinF**2 * sinL**2)
     W = np.arctan2(np.sqrt(S), np.sqrt(C))
 
-    if W == 0.:
+    if W == 0.0:
         return 0.0
 
     R = np.sqrt(S * C) / W
     H1 = (3.0 * R - 1.0) / (2.0 * C)
     H2 = (3.0 * R + 1.0) / (2.0 * S)
-    d = 2.0 * W * a * (
-        1.0 + (f * H1 * sinF**2 * cosG**2) - (f * H2 * cosF**2 * sinG**2))
+    return (
+        2.0
+        * W
+        * a
+        * (1.0 + (f * H1 * sinF**2 * cosG**2) - (f * H2 * cosF**2 * sinG**2))
+    )
 
-    return d
 
-
-__all__ = ['calc_relative_data', 'WGS84', 'ellipsoid_distance']
+__all__ = ["WGS84", "calc_relative_data", "ellipsoid_distance"]

@@ -1,6 +1,4 @@
-"""
-Utility functions for PocketSeis.
-"""
+"""Utility functions for PocketSeis."""
 
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -74,8 +72,8 @@ def round_day(timestamp, ceiling=False):
     """
     dt = datetime.utcfromtimestamp(timestamp)
     dt -= timedelta(
-        hours=dt.hour, minutes=dt.minute, seconds=dt.second,
-        microseconds=dt.microsecond)
+        hours=dt.hour, minutes=dt.minute, seconds=dt.second, microseconds=dt.microsecond
+    )
 
     if ceiling:
         dt += timedelta(days=1)
@@ -125,7 +123,7 @@ def round_half_up(a, decimals=0):
 
 def get_data_file(filename):
     p = Path(__file__).absolute()
-    return p.parent.joinpath('data', filename)
+    return p.parent.joinpath("data", filename)
 
 
 def column_stack_3d(array_2d):
@@ -145,8 +143,6 @@ def column_stack_3d(array_2d):
     return np.dstack(array_2d).reshape(n_cols, n_rows, 1)
 
 
-def issymmetric(a, tol=1.e-10):
-    """
-    Check if given array/matrix is symmetric.
-    """
+def issymmetric(a, tol=1.0e-10):
+    """Check if given array/matrix is symmetric."""
     return np.allclose(a, a.T, atol=tol)

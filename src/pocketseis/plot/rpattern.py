@@ -1,14 +1,14 @@
-from mpl_toolkits.mplot3d import Axes3D
+import numpy as np
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize
-import numpy as np
+from mpl_toolkits.mplot3d import Axes3D
 
 from pocketseis import hifull
 from pocketseis.plot import fetch_sci_cmap
 
 
 class UnitSphereFullSurface(object):
-    """
+    r"""
     Unit-sphere configuration space.
 
     Parameters
@@ -40,7 +40,7 @@ class UnitSphereFullSurface(object):
         self.n_phi = n_phi
 
         # 2D-grid shape (depends on meshgrid indexing)
-        self.__indexing = 'ij'
+        self.__indexing = "ij"
         self.sshape = (n_theta, n_phi)
 
         thetas = np.linspace(0.0, np.pi, n_theta, dtype=np.float64)
@@ -61,13 +61,12 @@ class UnitSphereFullSurface(object):
         # Spherical unit vectors (vectorised). Arrays of shape
         # (3, n_theta * n_phi). See eq. 9.9.16 of Pujol (2003)
         self.gamma_uv = np.vstack(
-            [np.ravel(self.vx), np.ravel(self.vy), np.ravel(self.vz)])
+            [np.ravel(self.vx), np.ravel(self.vy), np.ravel(self.vz)]
+        )
 
-        self.theta_uv = np.vstack(
-            [np.ravel(ct * cp), np.ravel(ct * sp), np.ravel(-st)])
+        self.theta_uv = np.vstack([np.ravel(ct * cp), np.ravel(ct * sp), np.ravel(-st)])
 
-        self.phi_uv = np.vstack(
-            [np.ravel(-sp), np.ravel(cp), np.zeros(cp.size)])
+        self.phi_uv = np.vstack([np.ravel(-sp), np.ravel(cp), np.zeros(cp.size)])
 
 
 def _check_isaxes3d(ax):
@@ -96,17 +95,17 @@ def _draw_cartesian_axes(ax3d, extent=1.5, **kwargs):
 
     minmax = np.array([-extent, extent])
     zeros2 = np.array([0.0, 0.0])
-    color = kwargs.get('color') or kwargs.get('c') or 'k'
+    color = kwargs.get("color") or kwargs.get("c") or "k"
 
-    f = 0.8   # to draw z-axis a bit shorter
+    f = 0.8  # to draw z-axis a bit shorter
     ax3d.plot(minmax, zeros2, zeros2, color)
     ax3d.plot(zeros2, minmax, zeros2, color)
     ax3d.plot(zeros2, zeros2, minmax * f, color)
 
-    text_kwargs = dict(va='top', backgroundcolor='w', alpha=0.5)
-    ax3d.text(0, extent, 0, r'$x$', ha='left', **text_kwargs)
-    ax3d.text(extent, 0, 0, r'$y$', ha='right', **text_kwargs)
-    ax3d.text(0, 0, -extent * f, r'$z$', ha='left', **text_kwargs)
+    text_kwargs = dict(va="top", backgroundcolor="w", alpha=0.5)
+    ax3d.text(0, extent, 0, r"$x$", ha="left", **text_kwargs)
+    ax3d.text(extent, 0, 0, r"$y$", ha="right", **text_kwargs)
+    ax3d.text(0, 0, -extent * f, r"$z$", ha="left", **text_kwargs)
 
 
 def _set_aspect_equal(ax3d):
@@ -122,12 +121,19 @@ def _set_aspect_equal(ax3d):
     x_range = ax3d.xy_dataLim.width
     y_range = ax3d.xy_dataLim.height
     z_range = ax3d.zz_dataLim.width
-    ax3d.set_box_aspect((x_range, y_range, z_range*0.925))   # Bug in mpl?
+    ax3d.set_box_aspect((x_range, y_range, z_range * 0.925))  # Bug in mpl?
 
 
 def plot_radiation_pattern(
-        ax3d, mt_symmat, quantity, wave_field, wave_type, direction=None,
-        qsphere=None, view_angles=(15, 35)):
+    ax3d,
+    mt_symmat,
+    quantity,
+    wave_field,
+    wave_type,
+    direction=None,
+    qsphere=None,
+    view_angles=(15, 35),
+):
     """
     Parameters
     ----------
@@ -160,25 +166,25 @@ def plot_radiation_pattern(
         counter-clockwise rotation of the view-point.
         Default values are [elev=15, azim=35]
     """
-    if direction is not None and \
-            direction not in ('radial', 'azimuthal', 'polar'):
+    if direction is not None and direction not in ("radial", "azimuthal", "polar"):
         raise ValueError(f"invalid direction: '{direction}'")
 
     if qsphere is None:
         qsphere = UnitSphereFullSurface()
 
-    if (wave_type := wave_type.upper()) not in (validwaves := ('P', 'S')):
+    if (wave_type := wave_type.upper()) not in (validwaves := ("P", "S")):
         raise ValueError(f"Valid values for wave_type are {validwaves}")
 
-    key = wave_field if wave_field == 'N' else wave_field + wave_type
-    F = hifull.calc_radiation_patterns_mt(
-        mt_symmat, qsphere.gamma_uv, quantity)[key].values
+    key = wave_field if wave_field == "N" else wave_field + wave_type
+    F = hifull.calc_radiation_patterns_mt(mt_symmat, qsphere.gamma_uv, quantity)[
+        key
+    ].values
 
     # Project r-pattern factors
     if direction is None:
-        if wave_type == 'P':
+        if wave_type == "P":
             # P r-pattern in radial direction
-            direction = 'radial'
+            direction = "radial"
             R = np.sum(qsphere.gamma_uv * F, axis=0)
         else:
             # S r-pattern in absolute value (eq. 9.12.5 of Pujol, 2003)
@@ -187,11 +193,11 @@ def plot_radiation_pattern(
             R = np.sqrt(Rsv**2 + Rsh**2)
     else:
         # Decompose along given 'direction' (eqs. 9.13.12-14 of Pujol, 2003)
-        if direction == 'radial':
+        if direction == "radial":
             unitvecs = qsphere.gamma_uv
-        elif direction == 'polar':
+        elif direction == "polar":
             unitvecs = qsphere.theta_uv
-        elif direction == 'azimuthal':
+        elif direction == "azimuthal":
             unitvecs = qsphere.phi_uv
 
         R = np.sum(unitvecs * F, axis=0)
@@ -205,16 +211,16 @@ def plot_radiation_pattern(
     # Negative shear motion (rotation) is meaningless for illustration purpose
     mags = maxabs_scale(np.sqrt(R**2))
 
-    if wave_type == 'P':
-        cmap = fetch_sci_cmap('berlin')
+    if wave_type == "P":
+        cmap = fetch_sci_cmap("berlin")
         norm = Normalize(-1, 1)
     else:
         if direction is None:
             # S r-pattern in absolute values
-            cmap = fetch_sci_cmap('bamako')
+            cmap = fetch_sci_cmap("bamako")
             norm = Normalize(0, 1)
         else:
-            cmap = fetch_sci_cmap('lisbon')
+            cmap = fetch_sci_cmap("lisbon")
             norm = Normalize(-1, 1)
 
     # Indivusual facecolors. Fourth dimension -> rgba
@@ -226,14 +232,22 @@ def plot_radiation_pattern(
     vy = mags * qsphere.vy
     vz = mags * qsphere.vz
     ax3d.plot_surface(
-        vx, vy, vz, facecolors=facecolors, alpha=0.9, linewidth=0,
-        edgecolors='k', rstride=1, cstride=1)
+        vx,
+        vy,
+        vz,
+        facecolors=facecolors,
+        alpha=0.9,
+        linewidth=0,
+        edgecolors="k",
+        rstride=1,
+        cstride=1,
+    )
 
     elev, azim = view_angles
     ax3d.view_init(elev=elev, azim=azim)
-    ax3d.axis('off')
+    ax3d.axis("off")
     _draw_cartesian_axes(ax3d)
     _set_aspect_equal(ax3d)
 
 
-__all__ = ['UnitSphereFullSurface', 'plot_radiation_pattern']
+__all__ = ["UnitSphereFullSurface", "plot_radiation_pattern"]

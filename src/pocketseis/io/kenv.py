@@ -6,13 +6,11 @@ from zipfile import ZipFile
 
 import numpy as np
 import xarray as xr
-
 from pyrocko.util import setup_logging, str_to_time
 
 from pocketseis.util import isleap, time2index
 
-
-setup_logging('read_kenv_5min')
+setup_logging("read_kenv_5min")
 logger = logging.getLogger(__name__)
 
 
@@ -44,10 +42,10 @@ def read_kenv_5min(zip_fname, as_xarray=True):
         timestamps (array of shape of (105120,)).
     """
     # Dict of named place-holders
-    station_id, year = op.basename(zip_fname).split('.')[:2]
+    station_id, year = op.basename(zip_fname).split(".")[:2]
     dph = dict(station_id=station_id, year=int(year))
 
-    n_days = 366 if isleap(dph['year']) else 365
+    n_days = 366 if isleap(dph["year"]) else 365
 
     deltat = 300
     datalen_perday = int(86400 / deltat)
@@ -57,36 +55,38 @@ def read_kenv_5min(zip_fname, as_xarray=True):
     data_yearly = np.zeros((datalen_peryear, 4))
 
     if not op.exists(zip_fname):
-        logger.exception('No such file: {}'.format(zip_fname))
+        logger.exception("No such file: {}".format(zip_fname))
 
     # Temporary directory to extract *.gz files
-    temp_dir = tempfile.TemporaryDirectory(suffix='ps_kenv_')
+    temp_dir = tempfile.TemporaryDirectory(suffix="ps_kenv_")
 
-    with ZipFile(zip_fname) as zip_obj:   # Open `*.zip` file
+    with ZipFile(zip_fname) as zip_obj:  # Open `*.zip` file
         for i_doy, doy in enumerate(range(1, n_days + 1)):
-            dph['doy'] = doy
-            t0 = str_to_time('{year}-{doy:03d} 00:00:00'.format_map(dph),
-                             format='%Y-%j %H:%M:%S')
+            dph["doy"] = doy
+            t0 = str_to_time(
+                "{year}-{doy:03d} 00:00:00".format_map(dph), format="%Y-%j %H:%M:%S"
+            )
 
             data_daily = np.zeros((datalen_perday, 4))
             i1 = i_doy * datalen_perday
-            i2 = (i_doy+1) * datalen_perday
+            i2 = (i_doy + 1) * datalen_perday
 
             try:
                 gz_fname = zip_obj.extract(
-                    '{station_id}.{year}.{doy:03d}.kenv.gz'.format_map(dph),
-                    path=temp_dir.name)
+                    "{station_id}.{year}.{doy:03d}.kenv.gz".format_map(dph),
+                    path=temp_dir.name,
+                )
             except KeyError:
-                logger.warning('[{station_id}.{year}] No data for '
-                               'day {doy:03d}'.format_map(dph))
-                data_yearly[i1:i2, 0] = t0 + np.arange(datalen_perday)*deltat
+                logger.warning(
+                    "[{station_id}.{year}] No data for day {doy:03d}".format_map(dph)
+                )
+                data_yearly[i1:i2, 0] = t0 + np.arange(datalen_perday) * deltat
                 data_yearly[i1:i2, [1, 2, 3]] = np.nan
             else:
-                with gzip.open(gz_fname, 'rb') as fobj:   # Open *.gz file
-
+                with gzip.open(gz_fname, "rb") as fobj:  # Open *.gz file
                     has_data = set()
                     for line in fobj.readlines():
-                        if line.startswith(b'site'):   # Skip header line
+                        if line.startswith(b"site"):  # Skip header line
                             continue
                         toks = line.split()
                         # Sample time and amplitudes (east, north, vertical)
@@ -110,8 +110,11 @@ def read_kenv_5min(zip_fname, as_xarray=True):
                 data_yearly[i1:i2] = data_daily
             finally:
                 if (doy % 90 == 0) or (doy == n_days):
-                    logger.info('[{station_id}.{year}] Parsed file for '
-                                'day {doy:3d}'.format_map(dph))
+                    logger.info(
+                        "[{station_id}.{year}] Parsed file for day {doy:3d}".format_map(
+                            dph
+                        )
+                    )
 
     # Clean up temporary dir
     temp_dir.cleanup()
@@ -121,5 +124,5 @@ def read_kenv_5min(zip_fname, as_xarray=True):
 
     ydata = data_yearly[:, 1:]
     times = data_yearly[:, 0]
-    comps = ['east', 'north', 'up']
-    return xr.DataArray(ydata, coords=[('time', times), ('component', comps)])
+    comps = ["east", "north", "up"]
+    return xr.DataArray(ydata, coords=[("time", times), ("component", comps)])

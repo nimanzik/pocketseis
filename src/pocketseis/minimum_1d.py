@@ -1,14 +1,13 @@
 from pyrocko import cake
 
-
-KM2M = 1.0e+3
+KM2M = 1.0e3
 M2KM = 1.0e-3
 
 
 def empirical_density(vp):
-    """
-    Calculate material density as a function of P-wave velocity by using
-    empirical relation of Ludwig et al. (1970) and Brocher (2005).
+    """Calculate material density as a function of P-wave velocity.
+
+    Uses empirical relation of Ludwig et al. (1970) and Brocher (2005).
 
     Parameters
     ----------
@@ -42,10 +41,10 @@ def empirical_density(vp):
 
 
 def calc_qp(qs, vp, vs):
-    """
-    Calculate Qp from Qs, Vp and Vs assuming a purly compressive or
-    dilational processes (i.e. Bulk quality factor, Qk, is infinity) by
-    using equation (14.41) of Udias (1999):
+    """Calculate Qp from Qs, Vp and Vs.
+
+    It assumes a purly compressive or dilational processes (i.e. Bulk quality
+    factor, Qk, is infinity) by using equation (14.41) of Udias (1999):
 
         (Qp/Qs) = (3/4) * (Vp/Vs)^2
 
@@ -63,14 +62,14 @@ def calc_qp(qs, vp, vs):
     qp : float
         P-wave quality factor.
     """
-    return 0.75 * (vp / vs)**2 * qs
+    return 0.75 * (vp / vs) ** 2 * qs
 
 
 def calc_qs(qp, vp, vs):
-    """
-    Calculate Qs from Qp, Vp and Vs assuming a purly compressive or
-    dilational processes (i.e. Bulk quality factor, Qk, is infinity) by
-    using equation (14.41) of Udias (1999):
+    """Calculate Qs from Qp, Vp and Vs.
+
+    It assumes a purly compressive or dilational processes (i.e. Bulk quality
+    factor, Qk, is infinity) by using equation (14.41) of Udias (1999):
 
         (Qp/Qs) = (3/4) * (Vp/Vs)^2
 
@@ -88,7 +87,7 @@ def calc_qs(qp, vp, vs):
     qs : float
         S-wave quality factor.
     """
-    return qp / (0.75 * (vp / vs)**2)
+    return qp / (0.75 * (vp / vs) ** 2)
 
 
 def _read_minimum1d_model_fh(f, zbot=None, qp=None, qs=None):
@@ -120,10 +119,11 @@ def _read_minimum1d_model_fh(f, zbot=None, qp=None, qs=None):
 
 
 def read_minimum1d_model(fn, zbot=None, qp=None, qs=None):
-    """
-    Reader for minimum 1-D model style files containing multiple lines of
-    three columns data, that are depth (in km), P-wave velocity (in km/s)
-    and S-wave velocity (in km/s), respectively.
+    """Reader for minimum 1-D model style files.
+
+    A minimum 1-D model style file contains multiple lines of three columns
+    data, that are depth (in km), P-wave velocity (in km/s) and S-wave velocity
+    (in km/s), respectively.
 
     This reader can be used as producer in
     :py:meth:`LayeredModel.from_scanlines`.
@@ -143,6 +143,6 @@ def read_minimum1d_model(fn, zbot=None, qp=None, qs=None):
     ------
     3-tuple of (depth, material, name).
     """
-    with open(fn, 'r') as f:
+    with open(fn, "r") as f:
         for x in _read_minimum1d_model_fh(f, zbot=zbot, qp=qp, qs=qs):
             yield x
