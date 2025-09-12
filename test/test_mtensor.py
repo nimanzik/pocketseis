@@ -6,7 +6,6 @@ from pocketseis import mtensor
 
 
 class MTensorTestCase(unittest.TestCase):
-
     @classmethod
     def setUpClass(cls):
         rng = np.random.default_rng()
@@ -21,8 +20,8 @@ class MTensorTestCase(unittest.TestCase):
 
     def test_normalize_mt(self):
         m_ = mtensor.normalize_mt(self.m)
-        self.assertAlmostEqual(np.linalg.norm(m_, ord='fro'), 1.0)
+        self.assertAlmostEqual(np.linalg.norm(m_, ord="fro"), 1.0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

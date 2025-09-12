@@ -6,16 +6,16 @@ seismograms.
 """
 
 import numpy as np
+from pyrocko import gf
+from pyrocko import moment_tensor as pmt
+from pyrocko.guts import Float
 from scipy.interpolate import interp1d
 
-from pyrocko import gf, moment_tensor as pmt
-from pyrocko.guts import Float
+from pocketseis import mtensor, rotation
 
-from pocketseis import rotation, mtensor
 from .meta import HIFullMaterial
 
-
-guts_prefix = 'pf'
+guts_prefix = "pf"
 
 
 # MTQTSource:: map ``beta`` parameter to ``u`` variable
@@ -33,28 +33,28 @@ class MTQTSource(gf.SourceWithMagnitude):
 
     u = Float.T(
         default=0.0,
-        help='Lunar co-latitude transformed to Q domain.'
-             'Interval of definition: [0, 3pi/4]')
+        help="Lunar co-latitude transformed to Q domain."
+        "Interval of definition: [0, 3pi/4]",
+    )
 
     v = Float.T(
         default=0.0,
-        help='Lunar longitude transformed to Q domain.'
-             'Interval of definition: [-1/3, 1/3]')
+        help="Lunar longitude transformed to Q domain."
+        "Interval of definition: [-1/3, 1/3]",
+    )
 
     kappa = Float.T(
-        default=0.0,
-        help='Strike angle in T domain.'
-             'Interval of definition: [0, 2pi]')
+        default=0.0, help="Strike angle in T domain.Interval of definition: [0, 2pi]"
+    )
 
     sigma = Float.T(
-        default=0.0,
-        help='Slip angle in T domain.'
-             'Interval of definition: [-pi/2, pi/2]')
+        default=0.0, help="Slip angle in T domain.Interval of definition: [-pi/2, pi/2]"
+    )
 
     h = Float.T(
         default=0.0,
-        help='Cosine of dip angle in T domain.'
-             'Interval of definition: [0, 1]')
+        help="Cosine of dip angle in T domain.Interval of definition: [0, 1]",
+    )
 
     discretized_source_class = gf.DiscretizedMTSource
 
@@ -84,25 +84,21 @@ class MTQTSource(gf.SourceWithMagnitude):
 
     @property
     def beta(self):
-        """
-        Lunar co-latitude as a function of :py:attr:`.u` (TT15, eq. 24a)
-        """
+        """Lunar co-latitude as a function of :py:attr:`.u` (TT15, eq. 24a)."""
         if self._beta is None:
             self._beta = INTERP(self.u).item()
         return self._beta
 
     @property
     def gamma(self):
-        """
-        Lunar longitude as a function of :py:attr:`.v` (TT15, eq. 24b)
-        """
+        """Lunar longitude as a function of :py:attr:`.v` (TT15, eq. 24b)."""
         if self._gamma is None:
             self._gamma = (1.0 / 3.0) * np.arcsin(3.0 * self.v)
         return self._gamma
 
     @property
     def delta(self):
-        """
+        r"""
         The coordinate $\\delta$ explicitly measures the departure from
         being deviatoric, and it puts the closest double couple at
         $\\gamma = \\delta = 0$.
@@ -113,29 +109,33 @@ class MTQTSource(gf.SourceWithMagnitude):
 
     @property
     def theta(self):
-        """
-        Dip angle as a function of :py:attr:`.h` (TT15, eq. 24c)
-        """
+        """Dip angle as a function of :py:attr:`.h` (TT15, eq. 24c)."""
         if self._theta is None:
             self._theta = np.arccos(self.h)
         return self._theta
 
     @property
     def lune_lambda_triple(self):
-        """
-        Lune eigenvalue triples (TT15, eq. 7)
-        """
+        """Lune eigenvalue triples (TT15, eq. 7)."""
         if self._lune_lambda_triple is None:
             sqrt2 = np.sqrt(2.0)
             sqrt3 = np.sqrt(3.0)
             sqrt6 = sqrt2 * sqrt3
-            a = np.array([[sqrt3, -1.0, sqrt2],
-                          [0.0, 2.0, sqrt2],
-                          [-sqrt3, -1.0, sqrt2]], dtype=np.float64) / sqrt6
+            a = (
+                np.array(
+                    [[sqrt3, -1.0, sqrt2], [0.0, 2.0, sqrt2], [-sqrt3, -1.0, sqrt2]],
+                    dtype=np.float64,
+                )
+                / sqrt6
+            )
 
-            b = np.array([np.sin(self.beta) * np.cos(self.gamma),
-                          np.sin(self.beta) * np.sin(self.gamma),
-                          np.cos(self.beta)])
+            b = np.array(
+                [
+                    np.sin(self.beta) * np.cos(self.gamma),
+                    np.sin(self.beta) * np.sin(self.gamma),
+                    np.cos(self.beta),
+                ]
+            )
 
             self._lune_lambda_triple = np.matmul(a, b)
 
@@ -143,7 +143,7 @@ class MTQTSource(gf.SourceWithMagnitude):
 
     @property
     def lune_lambda_matrix(self):
-        """
+        r"""
         Diagonalized moment tensor (TT15, eq. 4a).
         This matrix describes a beachball moment tensor with eigenvalues
         $\\lambda_1, \\lambda_2, \\lambda_3$ and with corresponding
@@ -157,50 +157,46 @@ class MTQTSource(gf.SourceWithMagnitude):
     def rotmat_kappa(self):
         """
         Rotation through angle :py:attr:`.kappa` about the z-axis
-        (TT15, eq. 9)
+        (TT15, eq. 9).
         """
         if self._rotmat_kappa is None:
-            self._rotmat_kappa = rotation.cartesian_rotmat(-self.kappa, 'z')
+            self._rotmat_kappa = rotation.cartesian_rotmat(-self.kappa, "z")
         return self._rotmat_kappa
 
     @property
     def rotmat_theta(self):
         """
         Rotation through angle :py:meth:`.theta` about the x-axis
-        (TT15, eq. 9)
+        (TT15, eq. 9).
         """
         if self._rotmat_theta is None:
-            self._rotmat_theta = rotation.cartesian_rotmat(self.theta, 'x')
+            self._rotmat_theta = rotation.cartesian_rotmat(self.theta, "x")
         return self._rotmat_theta
 
     @property
     def rotmat_sigma(self):
         """
         Rotation through angle :py:attr:`.sigma` about the z-axis
-        (TT15, eq. 9)
+        (TT15, eq. 9).
         """
         if self._rotmat_sigma is None:
-            self._rotmat_sigma = rotation.cartesian_rotmat(self.sigma, 'z')
+            self._rotmat_sigma = rotation.cartesian_rotmat(self.sigma, "z")
         return self._rotmat_sigma
 
     @property
     def rotmat_V(self):
-        """
-        Rotation matrix ``V`` defined in TT15, eq. 9.
-        """
+        """Rotation matrix ``V`` defined in TT15, eq. 9."""
         if self._rotmat_V is None:
-            self._rotmat_V = (
-                self.rotmat_kappa @ self.rotmat_theta @ self.rotmat_sigma)
+            self._rotmat_V = self.rotmat_kappa @ self.rotmat_theta @ self.rotmat_sigma
         return self._rotmat_V
 
     @property
     def rotmat_U(self):
-        """
-        Rotation matrix ``U`` defined in TT15, eq. 10.
-        """
+        """Rotation matrix ``U`` defined in TT15, eq. 10."""
         if self._rotmat_U is None:
-            self._rotmat_U = (
-                self.rotmat_V @ rotation.cartesian_rotmat(-np.pi / 4.0, 'y'))
+            self._rotmat_U = self.rotmat_V @ rotation.cartesian_rotmat(
+                -np.pi / 4.0, "y"
+            )
         return self._rotmat_U
 
     @property
@@ -214,9 +210,9 @@ class MTQTSource(gf.SourceWithMagnitude):
         the rotation matrix :py:meth:`.self.rotmat_U`.
         """
         if self._m9_nwu is None:
-            self._m9_nwu = (self.rotmat_U
-                            @ self.lune_lambda_matrix
-                            @ np.linalg.inv(self.rotmat_U))
+            self._m9_nwu = (
+                self.rotmat_U @ self.lune_lambda_matrix @ np.linalg.inv(self.rotmat_U)
+            )
         return self._m9_nwu
 
     @property
@@ -236,9 +232,7 @@ class MTQTSource(gf.SourceWithMagnitude):
 
     @property
     def m6_nwu_astuple(self):
-        """
-        Same as :py:meth:`.m6_nwu` but returned as a tuple.
-        """
+        """Same as :py:meth:`.m6_nwu` but returned as a tuple."""
         if self._m6_nwu_astuple is None:
             self._m6_nwu_astuple = tuple(self.m6_nwu.tolist())
         return self._m6_nwu_astuple
@@ -252,7 +246,7 @@ class MTQTSource(gf.SourceWithMagnitude):
         tensor).
         """
         if self._m9_ned is None:
-            self._m9_ned = rotation.rotate_mt(self.m9_nwu, 'NWU->NED')
+            self._m9_ned = rotation.rotate_mt(self.m9_nwu, "NWU->NED")
         return self._m9_ned
 
     @property
@@ -272,32 +266,24 @@ class MTQTSource(gf.SourceWithMagnitude):
 
     @property
     def m6_ned_astuple(self):
-        """
-        Same as :py:meth:`.m6_ned` but returned as a tuple.
-        """
+        """Same as :py:meth:`.m6_ned` but returned as a tuple."""
         if self._m6_ned_astuple is None:
             self._m6_ned_astuple = tuple(self.m6_ned.tolist())
         return self._m6_ned_astuple
 
     @property
     def m9(self):
-        """
-        An alias to :py:meth:`.m9_ned`
-        """
+        """An alias to :py:meth:`.m9_ned`."""
         return self.m9_ned
 
     @property
     def m6(self):
-        """
-        An alias to :py:meth:`.m6_ned`
-        """
+        """An alias to :py:meth:`.m6_ned`."""
         return self.m6_ned
 
     @property
     def m6_astuple(self):
-        """
-        An alias to :py:meth:`.m6_ned_astuple`
-        """
+        """An alias to :py:meth:`.m6_ned_astuple`."""
         return self.m6_ned_astuple
 
     @property
@@ -330,14 +316,14 @@ class MTQTSource(gf.SourceWithMagnitude):
 
     def discretize_basesource(self, store, target=None):
         times, amplitudes = self.effective_stf_pre().discretize_t(
-            store.config.deltat, self.time)
+            store.config.deltat, self.time
+        )
 
         # `m6s` is an ndarray of shape (n_samples, 6)
         mmt = self.pyrocko_moment_tensor()
         m6s = mmt.m6()[np.newaxis, :] * amplitudes[:, np.newaxis]
 
-        return gf.DiscretizedMTSource(m6s=m6s,
-                                      **self._dparams_base_repeated(times))
+        return gf.DiscretizedMTSource(m6s=m6s, **self._dparams_base_repeated(times))
 
     # TODO
     # @classmethod
@@ -357,36 +343,35 @@ class MTQTSource(gf.SourceWithMagnitude):
 
 class TensileSource(gf.Source):
     strike = Float.T(
-        default=0.0,
-        help='Strike direction measured clockwise from North. Unit: [deg]')
+        default=0.0, help="Strike direction measured clockwise from North. Unit: [deg]"
+    )
     dip = Float.T(
         default=0.0,
-        help='Dip angle measured from the surface to the fault in the '
-             'direction of dip. Unit: [deg]')
+        help="Dip angle measured from the surface to the fault in the "
+        "direction of dip. Unit: [deg]",
+    )
     rake = Float.T(
         default=0.0,
-        help='Rake angle measured on the fault surface from the strike '
-             'direction counter-clockwise to the slip vector. Unit: [deg]')
+        help="Rake angle measured on the fault surface from the strike "
+        "direction counter-clockwise to the slip vector. Unit: [deg]",
+    )
     dislocation_slope = Float.T(
         default=0.0,
-        help='Angle α defining the deviation of the dislocation vector '
-             'from the fault plane. '
-             'α ∈ (0, +90] -> extensive (opening) source, '
-             'α = 0 -> shear source, '
-             'α ∈ [-90, 0) -> compressive (closing) source.')
-    length = Float.T(
-        default=1.0,
-        help='Length of rectangular source area. Unit [m]')
+        help="Angle α defining the deviation of the dislocation vector "
+        "from the fault plane. "
+        "α ∈ (0, +90] -> extensive (opening) source, "
+        "α = 0 -> shear source, "
+        "α ∈ [-90, 0) -> compressive (closing) source.",
+    )
+    length = Float.T(default=1.0, help="Length of rectangular source area. Unit [m]")
 
-    width = Float.T(
-        default=1.0,
-        help='Width of rectangular source area. Unit: [m]')
+    width = Float.T(default=1.0, help="Width of rectangular source area. Unit: [m]")
     dislocation = Float.T(
-        default=1.0,
-        help='The magnitude of dislocation vector. Unit: [m]')
+        default=1.0, help="The magnitude of dislocation vector. Unit: [m]"
+    )
     material = HIFullMaterial.T(
-        default=HIFullMaterial(),
-        help='Isotropic elastic material')
+        default=HIFullMaterial(), help="Isotropic elastic material"
+    )
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -401,16 +386,14 @@ class TensileSource(gf.Source):
             sinδ, cosδ = np.sin(self.dip), np.cos(self.dip)
             sinλ, cosλ = np.sin(self.rake), np.cos(self.rake)
             sinα, cosα = (
-                np.sin(self.dislocation_slope), np.cos(self.dislocation_slope))
+                np.sin(self.dislocation_slope),
+                np.cos(self.dislocation_slope),
+            )
 
             n = np.array([-sinδ * sinϕ, sinδ * cosϕ, -cosδ])[:, np.newaxis]
 
-            v1 = (
-                (cosλ * cosϕ + cosδ * sinλ * sinϕ) * cosα
-                - (sinδ * sinϕ * sinα))
-            v2 = (
-                (cosλ * sinϕ - cosδ * sinλ * cosϕ) * cosα
-                + (sinδ * cosϕ * sinα))
+            v1 = (cosλ * cosϕ + cosδ * sinλ * sinϕ) * cosα - (sinδ * sinϕ * sinα)
+            v2 = (cosλ * sinϕ - cosδ * sinλ * cosϕ) * cosα + (sinδ * cosϕ * sinα)
             v3 = (-sinλ * sinδ * cosα) - (cosδ * sinα)
             v = np.array([v1, v2, v3])[:, np.newaxis]
 
@@ -421,7 +404,6 @@ class TensileSource(gf.Source):
 
     def pyrocko_moment_tensor(self):
         """Moment tensor in an isotropic medium."""
-
         D = self.potency_tensor
         Dkk = D.trace()
         λ, μ = self.material.lame()
@@ -431,8 +413,9 @@ class TensileSource(gf.Source):
             (λ * Dkk) + 2.0 * μ * D[2, 2],
             2.0 * μ * D[0, 1],
             2.0 * μ * D[0, 2],
-            2.0 * μ * D[1, 2])
+            2.0 * μ * D[1, 2],
+        )
         return pmt.MomentTensor.from_values(m6)
 
 
-__all__ = ['MTQTSource', 'TensileSource']
+__all__ = ["MTQTSource", "TensileSource"]

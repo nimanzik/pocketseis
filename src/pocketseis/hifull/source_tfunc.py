@@ -1,10 +1,8 @@
 import numpy as np
-
 from pyrocko import gf
 from pyrocko.guts import Float, Int
 
-
-guts_prefix = 'pf'
+guts_prefix = "pf"
 
 
 class BaseSTF(gf.STF):
@@ -21,33 +19,32 @@ class BaseSTF(gf.STF):
          0.0: center -> source duration [-T/2, T/2] ~ centroid time,
         +1.0: right -> source duration [-T, 0] ~ rupture end time.
     """
+
     duration = Float.T(
-        help='Source time function duration in [s] (also called rise '
-             'time). It agrees approximately with the rupture duration.')
+        help="Source time function duration in [s] (also called rise "
+        "time). It agrees approximately with the rupture duration."
+    )
     anchor = Float.T(
         default=-1.0,
-        help='anchor point with respect to source origin-time: '
-             '-1.0: left -> source duration [0, T] ~ hypocenter time, '
-             ' 0.0: center -> source duration [-T/2, T/2] ~ centroid time, '
-             '+1.0: right -> source duration [-T, 0] ~ rupture end time.')
+        help="anchor point with respect to source origin-time: "
+        "-1.0: left -> source duration [0, T] ~ hypocenter time, "
+        " 0.0: center -> source duration [-T/2, T/2] ~ centroid time, "
+        "+1.0: right -> source duration [-T, 0] ~ rupture end time.",
+    )
 
     def tminmax_stf(self, tref):
-        """
-        Returns time of first and last samples of the STF.
-        """
+        """Returns time of first and last samples of the STF."""
         tmin_stf = tref - self.duration * (self.anchor + 1.0) * 0.5
         tmax_stf = tref + self.duration * (1.0 - self.anchor) * 0.5
         return tmin_stf, tmax_stf
 
     def base_key(self):
-        """
-        Returns STF name and attribute values.
-        """
+        """Returns STF name and attribute values."""
         return (type(self).__name__, self.duration, self.anchor)
 
 
 class SmoothRampSTF(BaseSTF):
-    """
+    r"""
     Smoothly increasing ramp (from zero to maximum amplitude)
     source-time function for near-field displacement.
     STF model is based on analytical seismic moment function, M(t),
@@ -80,8 +77,8 @@ class SmoothRampSTF(BaseSTF):
 
             # Bruestle & Mueller (1983) model (max amplitude is 1)
             amplitudes = (9.0 / 16.0) * (
-                1.0 - np.cos(omega_t)
-                + ((np.cos(3.0 * omega_t) - 1.0) / 9.0))
+                1.0 - np.cos(omega_t) + ((np.cos(3.0 * omega_t) - 1.0) / 9.0)
+            )
 
             if scale:
                 amplitudes *= deltat
@@ -92,7 +89,7 @@ class SmoothRampSTF(BaseSTF):
 
 
 class GaussianSTF(BaseSTF):
-    """
+    r"""
     Gaussian-shaped type source-time function for far-field displacement
     or near-field velocity.
     STF model is based on analytical moment-rate function, dM(t)/dt, of
@@ -115,9 +112,9 @@ class GaussianSTF(BaseSTF):
 
     def discretize_t(self, deltat, tref, scale=True):
         tmin_stf, tmax_stf = self.tminmax_stf(tref)
-        tmin = round(tmin_stf/deltat) * deltat
-        tmax = round(tmax_stf/deltat) * deltat
-        nt = int(round((tmax-tmin)/deltat)) + 1
+        tmin = round(tmin_stf / deltat) * deltat
+        tmax = round(tmax_stf / deltat) * deltat
+        nt = int(round((tmax - tmin) / deltat)) + 1
         times = np.linspace(tmin, tmax, nt)
         if nt > 1:
             t_dummy = np.linspace(tmin - 0.5 * deltat, tmax + 0.5 * deltat, nt)
@@ -126,8 +123,11 @@ class GaussianSTF(BaseSTF):
             omega_t = omega * (t_edges - tmin_stf)
 
             # Bruestle & Mueller (1983) model
-            amplitudes = (9.0 / 16.0) * (omega / 3.0) * (
-                3.0 * np.sin(omega_t) - np.sin(3.0 * omega_t))
+            amplitudes = (
+                (9.0 / 16.0)
+                * (omega / 3.0)
+                * (3.0 * np.sin(omega_t) - np.sin(3.0 * omega_t))
+            )
 
             if scale:
                 amplitudes /= np.sum(amplitudes)
@@ -138,7 +138,7 @@ class GaussianSTF(BaseSTF):
 
 
 class ZeroCrossingSTF(BaseSTF):
-    """
+    r"""
     First derivative of a Gaussian-shaped source-time function for
     far-filed velocity.
     STF model is based on the time derivative of analytical moment-rate
@@ -159,19 +159,20 @@ class ZeroCrossingSTF(BaseSTF):
 
     def discretize_t(self, deltat, tref, scale=True):
         tmin_stf, tmax_stf = self.tminmax_stf(tref)
-        tmin = round(tmin_stf/deltat) * deltat
-        tmax = round(tmax_stf/deltat) * deltat
-        nt = int(round((tmax-tmin)/deltat)) + 1
+        tmin = round(tmin_stf / deltat) * deltat
+        tmax = round(tmax_stf / deltat) * deltat
+        nt = int(round((tmax - tmin) / deltat)) + 1
         times = np.linspace(tmin, tmax, nt)
         if nt > 1:
             t_dummy = np.linspace(tmin - 0.5 * deltat, tmax + 0.5 * deltat, nt)
             t_edges = np.maximum(tmin_stf, np.minimum(tmax_stf, t_dummy))
             omega = np.pi / self.duration
-            omega_t = (t_edges-tmin_stf) * omega
+            omega_t = (t_edges - tmin_stf) * omega
 
             # Bruestle & Mueller (1983) model
-            amplitudes = (9.0 / 16.0) * omega**2 * (
-                np.cos(omega_t) - np.cos(3.0 * omega_t))
+            amplitudes = (
+                (9.0 / 16.0) * omega**2 * (np.cos(omega_t) - np.cos(3.0 * omega_t))
+            )
 
             if scale:
                 amplitudes *= deltat
@@ -194,17 +195,19 @@ class StepResponseSTF(BaseSTF):
        theoretical seismic sources. Geophysical Journal International,
        47(1), 97-133.
     """
+
     damping_factor = Int.T(
         help="Parameter with the dimension of inverse time, which controls "
-             "the width (or frequency content) and amplitude of the "
-             "source-time function. It a positive integer. The larger this "
-             "parameter the narrower the pulse.")
+        "the width (or frequency content) and amplitude of the "
+        "source-time function. It a positive integer. The larger this "
+        "parameter the narrower the pulse."
+    )
 
     def discretize_t(self, deltat, tref, scale=True):
         tmin_stf, tmax_stf = self.tminmax_stf(tref)
-        tmin = round(tmin_stf/deltat) * deltat
-        tmax = round(tmax_stf/deltat) * deltat
-        nt = int(round((tmax-tmin)/deltat)) + 1
+        tmin = round(tmin_stf / deltat) * deltat
+        tmax = round(tmax_stf / deltat) * deltat
+        nt = int(round((tmax - tmin) / deltat)) + 1
         times = np.linspace(tmin, tmax, nt)
         if nt > 1:
             t_dummy = np.linspace(tmin - 0.5 * deltat, tmax + 0.5 * deltat, nt)
@@ -213,7 +216,7 @@ class StepResponseSTF(BaseSTF):
             amplitudes = 1.0 - (1.0 + omega_t) * np.exp(-1.0 * omega_t)
 
             if scale:
-                amplitudes *= (deltat / amplitudes.max())
+                amplitudes *= deltat / amplitudes.max()
         else:
             amplitudes = np.ones(1)
 
@@ -233,17 +236,19 @@ class ImpulseResponseSTF(BaseSTF):
        theoretical seismic sources. Geophysical Journal International,
        47(1), 97-133.
     """
+
     damping_factor = Int.T(
         help="Parameter with the dimension of inverse time, which controls "
-             "the width (or frequency content) and amplitude of the "
-             "source-time function. It a positive integer. The larger this "
-             "parameter the narrower the pulse.")
+        "the width (or frequency content) and amplitude of the "
+        "source-time function. It a positive integer. The larger this "
+        "parameter the narrower the pulse."
+    )
 
     def discretize_t(self, deltat, tref, scale=True):
         tmin_stf, tmax_stf = self.tminmax_stf(tref)
-        tmin = round(tmin_stf/deltat) * deltat
-        tmax = round(tmax_stf/deltat) * deltat
-        nt = int(round((tmax-tmin)/deltat)) + 1
+        tmin = round(tmin_stf / deltat) * deltat
+        tmax = round(tmax_stf / deltat) * deltat
+        nt = int(round((tmax - tmin) / deltat)) + 1
         times = np.linspace(tmin, tmax, nt)
         if nt > 1:
             t_dummy = np.linspace(tmin - 0.5 * deltat, tmax + 0.5 * deltat, nt)
@@ -260,8 +265,9 @@ class ImpulseResponseSTF(BaseSTF):
 
 
 __all__ = [
-    'SmoothRampSTF',
-    'GaussianSTF',
-    'ZeroCrossingSTF',
-    'StepResponseSTF',
-    'ImpulseResponseSTF']
+    "GaussianSTF",
+    "ImpulseResponseSTF",
+    "SmoothRampSTF",
+    "StepResponseSTF",
+    "ZeroCrossingSTF",
+]

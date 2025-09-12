@@ -1,26 +1,32 @@
 import math
 
 import numpy as np
-from scipy.signal import fftconvolve
-
-from pyrocko.guts import Float, Object
-from torch.nn.functional import avg_pool2d
 import torch
 import xarray as xr
+from pyrocko.guts import Float, Object
+from scipy.signal import fftconvolve
+from torch.nn.functional import avg_pool2d
 
 from pocketseis.compass import calc_relative_data
 from pocketseis.rotation import cartesian_rotmat
-from pocketseis.util import column_stack_3d, time_to_index, time_range
+from pocketseis.util import column_stack_3d, time_range, time_to_index
+
 from .meta import HIFullMaterial
-from .source_tfunc import SmoothRampSTF, GaussianSTF, ZeroCrossingSTF
+from .source_tfunc import GaussianSTF, SmoothRampSTF, ZeroCrossingSTF
 
-
-guts_prefix = 'pf'
+guts_prefix = "pf"
 
 
 def calc_radiation_patterns_mt(
-        mt_symmat, dircos_vecs, quantity, far=True, intermediate=True,
-        near=True, intermediate_far=True, intermediate_near=True):
+    mt_symmat,
+    dircos_vecs,
+    quantity,
+    far=True,
+    intermediate=True,
+    near=True,
+    intermediate_far=True,
+    intermediate_near=True,
+):
     """
     Radiation patterns of displacement field or *normal* strain field
     (εᵢᵢ; i∈{x, y, z}) from a moment-tensor point source.
@@ -49,8 +55,7 @@ def calc_radiation_patterns_mt(
         `axis` are 'x', 'y' and 'z' (indices of 0, 1 and 2,
         respectively).
     """
-
-    if quantity not in (valid_quants := ('displacement', 'strain')):
+    if quantity not in (valid_quants := ("displacement", "strain")):
         raise ValueError(f"Valid quantities are: {valid_quants}")
 
     # Cache common terms to save computation time
@@ -65,17 +70,17 @@ def calc_radiation_patterns_mt(
     assert ΓT.shape == (n_rec, 1, 3)
 
     q1 = M @ Γ
-    k1 = ΓT @ q1   # shape of (n_rec, 1, 1)
+    k1 = ΓT @ q1  # shape of (n_rec, 1, 1)
     k2 = M.trace()
     q2 = k1 * Γ
     q3 = k2 * Γ
 
     # Dimension and coordinate names when saving RPs into `xr.DataSet`
-    dims = ['axis', 'i_reciever']
-    coords = {'axis': ['x', 'y', 'z']}
+    dims = ["axis", "i_reciever"]
+    coords = {"axis": ["x", "y", "z"]}
 
     # ----------
-    if quantity == 'strain':
+    if quantity == "strain":
         J = np.ones((3, 1), dtype=np.float64)
         q4 = k1 * J
         q5 = k2 * J
@@ -109,21 +114,28 @@ def calc_radiation_patterns_mt(
             B_inp = (
                 (6.0 * q4)
                 + ((-30.0 * q2) + (18.0 * q1) + (3.0 * q3) - A_n) * Γ
-                - q5 - (2.0 * q6))
+                - q5
+                - (2.0 * q6)
+            )
 
             # Intermediate-near field S-wave strain (INS ∝ 1/r³)
             B_ins = (
                 (6.0 * q4)
                 + ((-30.0 * q2) + (17.0 * q1) + (3.0 * q3) - A_n) * Γ
-                - q5 - (3.0 * q6))
+                - q5
+                - (3.0 * q6)
+            )
         else:
             B_inp = B_ins = np.zeros_like(Γ)
 
         if near is True:
             # Near-field strain (N ∝ 1/r⁵)
             B_n = (
-                (15.0 * q4) + 15.0 * ((-7.0 * q2) + (4.0 * q1) + q3) * Γ
-                - (3.0 * q5) - (6.0 * q6))
+                (15.0 * q4)
+                + 15.0 * ((-7.0 * q2) + (4.0 * q1) + q3) * Γ
+                - (3.0 * q5)
+                - (6.0 * q6)
+            )
         else:
             B_n = np.zeros_like(Γ)
 
@@ -132,11 +144,13 @@ def calc_radiation_patterns_mt(
         data_vars = {
             k: (dims, v.squeeze(axis=2).T)
             for k, v in zip(
-                ['FP', 'FS', 'IFP', 'IFS', 'INP', 'INS', 'N'],
-                [B_fp, B_fs, B_ifp, B_ifs, B_inp, B_ins, B_n])}
+                ["FP", "FS", "IFP", "IFS", "INP", "INS", "N"],
+                [B_fp, B_fs, B_ifp, B_ifs, B_inp, B_ins, B_n],
+            )
+        }
 
     # ----------
-    elif quantity == 'displacement':
+    elif quantity == "displacement":
         if far is True:
             # Far-field displacements (FP & FS ∝ 1/r)
             A_fp = q2
@@ -162,8 +176,9 @@ def calc_radiation_patterns_mt(
         data_vars = {
             k: (dims, v.squeeze(axis=2).T)
             for k, v in zip(
-                ['FP', 'FS', 'IP', 'IS', 'N'],
-                [A_fp, A_fs, A_ip, A_is, A_n])}
+                ["FP", "FS", "IP", "IS", "N"], [A_fp, A_fs, A_ip, A_is, A_n]
+            )
+        }
 
     return xr.Dataset(data_vars=data_vars, coords=coords)
 
@@ -200,8 +215,9 @@ def pad_stf(t_phase, stf_amps, deltat, total_len):
     return np.pad(
         stf_amps,
         pad_width=(before, after),
-        mode='constant',
-        constant_values=(0.0, stf_amps[-1]))
+        mode="constant",
+        constant_values=(0.0, stf_amps[-1]),
+    )
 
 
 def convolve_stf(tp, ts, stf_amps, deltat, total_len):
@@ -229,8 +245,8 @@ def convolve_stf(tp, ts, stf_amps, deltat, total_len):
     tau = time_range(tp, ts, deltat)
 
     # Repeat end point to prevent boundary effects
-    pady = np.pad(stf_amps, (0, tau.size), mode='edge')
-    convy = fftconvolve(pady, tau)[:-tau.size] * deltat
+    pady = np.pad(stf_amps, (0, tau.size), mode="edge")
+    convy = fftconvolve(pady, tau)[: -tau.size] * deltat
 
     before = time_to_index(tp, deltat)
     after = total_len - (before + convy.size)
@@ -238,8 +254,9 @@ def convolve_stf(tp, ts, stf_amps, deltat, total_len):
     return np.pad(
         convy,
         pad_width=(before, after),
-        mode='constant',
-        constant_values=(0.0, convy[-1]))
+        mode="constant",
+        constant_values=(0.0, convy[-1]),
+    )
 
 
 class HIFullScenario(Object):
@@ -247,17 +264,19 @@ class HIFullScenario(Object):
     Base class for forward modelling scenario for homogeneous,
     isotropic, unbounded (full-space) elastic medium.
     """
-    deltat = Float.T(help='Time-sampling interval. Unit: [s]')
-    material = HIFullMaterial.T(help='Isotropic elastic material')
+
+    deltat = Float.T(help="Time-sampling interval. Unit: [s]")
+    material = HIFullMaterial.T(help="Isotropic elastic material")
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
         # Reciprocals of the material parameters
         self._recips = {
-            '1/4πρ': 1.0 / (4.0 * np.pi * self.material.rho),
-            '1/α': 1.0 / self.material.vp,
-            '1/β': 1.0 / self.material.vs}
+            "1/4πρ": 1.0 / (4.0 * np.pi * self.material.rho),
+            "1/α": 1.0 / self.material.vp,
+            "1/β": 1.0 / self.material.vs,
+        }
 
     def _cache_dist_recips(self, dists_3d, quantity):
         """
@@ -275,17 +294,17 @@ class HIFullScenario(Object):
         -------
         None
         """
-        if quantity not in (valid_quants := ('displacement', 'strain')):
+        if quantity not in (valid_quants := ("displacement", "strain")):
             raise ValueError(f"Valid quantities are: {valid_quants}")
 
-        self._recips['1/r'] = 1.0 / dists_3d
-        self._recips['1/r2'] = pow(self._recips['1/r'], 2)
+        self._recips["1/r"] = 1.0 / dists_3d
+        self._recips["1/r2"] = pow(self._recips["1/r"], 2)
 
-        if quantity == 'displacement':
-            self._recips['1/r4'] = pow(self._recips['1/r'], 4)
-        elif quantity == 'strain':
-            self._recips['1/r3'] = pow(self._recips['1/r'], 3)
-            self._recips['1/r5'] = pow(self._recips['1/r'], 5)
+        if quantity == "displacement":
+            self._recips["1/r4"] = pow(self._recips["1/r"], 4)
+        elif quantity == "strain":
+            self._recips["1/r3"] = pow(self._recips["1/r"], 3)
+            self._recips["1/r5"] = pow(self._recips["1/r"], 5)
 
     def _calc_ptimes(self, dists_3d):
         """
@@ -301,7 +320,7 @@ class HIFullScenario(Object):
         tp_all : ndarrays of shape (n_receivers,)
             P-wave travel-times.
         """
-        return dists_3d * self._recips['1/α']
+        return dists_3d * self._recips["1/α"]
 
     def _calc_stimes(self, dists_3d):
         """
@@ -317,7 +336,7 @@ class HIFullScenario(Object):
         ts_all : ndarrays of shape (n_receivers,)
             S-wave travel-times.
         """
-        return dists_3d * self._recips['1/β']
+        return dists_3d * self._recips["1/β"]
 
 
 class StrainHIFullScenario(HIFullScenario):
@@ -334,8 +353,15 @@ class StrainHIFullScenario(HIFullScenario):
     """
 
     def process(
-            self, source, cable, stf_duration, far=True,
-            intermediate_far=True, intermediate_near=True, near=True):
+        self,
+        source,
+        cable,
+        stf_duration,
+        far=True,
+        intermediate_far=True,
+        intermediate_near=True,
+        near=True,
+    ):
         """
         Parameters
         ----------
@@ -367,24 +393,21 @@ class StrainHIFullScenario(HIFullScenario):
           time plus STF duration (``ts+T``).
         """
         event = source.pyrocko_event()
-        dists_3d, dircos_vecs = \
-            cable.get_event_relative_data(event, level='grid')
+        dists_3d, dircos_vecs = cable.get_event_relative_data(event, level="grid")
 
         # Cache powers of 3-D distances, arrays of shape (n_Rec, 1)
-        self._cache_dist_recips(
-            dists_3d=dists_3d[:, np.newaxis],
-            quantity='strain')
+        self._cache_dist_recips(dists_3d=dists_3d[:, np.newaxis], quantity="strain")
 
         # We assume that the DAS cable is oriented in the `x` direction.
         # The axial strain along the cable can be deduced as the normal
         # strain, `εₓₓ`. Therefore, we use a rotated coordinate system
         # in which the cable coincides with the `x` axis.
-        if hasattr(cable, 'azimuth'):
+        if hasattr(cable, "azimuth"):
             # Surface DAS cable
-            rotmat = cartesian_rotmat(np.deg2rad(cable.azimuth), 'z')
+            rotmat = cartesian_rotmat(np.deg2rad(cable.azimuth), "z")
         else:
             # Borehole DAS cable
-            rotmat = cartesian_rotmat(-np.pi / 2.0, 'y')
+            rotmat = cartesian_rotmat(-np.pi / 2.0, "y")
 
         mt_symmat = np.asarray(source.pyrocko_moment_tensor().m())
         mt_symmat_rotated = rotmat.T @ mt_symmat @ rotmat
@@ -393,15 +416,20 @@ class StrainHIFullScenario(HIFullScenario):
 
         # Radiation-pattern factors
         xset = calc_radiation_patterns_mt(
-            mt_symmat_rotated, dircos_vecs_rotated, quantity='strain',
-            far=far, intermediate_far=intermediate_far,
-            intermediate_near=intermediate_near, near=near)
+            mt_symmat_rotated,
+            dircos_vecs_rotated,
+            quantity="strain",
+            far=far,
+            intermediate_far=intermediate_far,
+            intermediate_near=intermediate_near,
+            near=near,
+        )
 
         # Time-dependent seismic moment, M(t). It should be normalised
         # to one, otherwise the source magnitude becomes meaningless.
         ramp_stf = SmoothRampSTF(duration=stf_duration, anchor=-1.0)
         _, D = ramp_stf.discretize_t(self.deltat, 0.0, scale=False)
-        assert D.max() == 1.0, 'Seismic moment STF should be normalized to 1'
+        assert D.max() == 1.0, "Seismic moment STF should be normalized to 1"
 
         # Seismic moment-rate, dM(t)/dt
         gaus_stf = GaussianSTF(duration=stf_duration, anchor=-1.0)
@@ -429,8 +457,8 @@ class StrainHIFullScenario(HIFullScenario):
             # Far-field strain (ε_f ∝ 1/r)
 
             # Store only `εₓₓ` radiations, arrays of shape (n_rec, 1)
-            B_fp = xset['FP'].values[0][:, np.newaxis]
-            B_fs = xset['FS'].values[0][:, np.newaxis]
+            B_fp = xset["FP"].values[0][:, np.newaxis]
+            B_fs = xset["FS"].values[0][:, np.newaxis]
 
             # STF values, arrays of shape (n_rec, data_len)
             T_fp = np.zeros((n_rec, data_len), dtype=np.float64)
@@ -439,8 +467,8 @@ class StrainHIFullScenario(HIFullScenario):
                 T_fp[i_rec] = pad_stf(tp_all[i_rec], Dddot, deltat, data_len)
                 T_fs[i_rec] = pad_stf(ts_all[i_rec], Dddot, deltat, data_len)
 
-            ε_fp = -c['1/4πρ'] * c['1/α']**4 * c['1/r'] * B_fp * T_fp
-            ε_fs = +c['1/4πρ'] * c['1/β']**4 * c['1/r'] * B_fs * T_fs
+            ε_fp = -c["1/4πρ"] * c["1/α"] ** 4 * c["1/r"] * B_fp * T_fp
+            ε_fs = +c["1/4πρ"] * c["1/β"] ** 4 * c["1/r"] * B_fs * T_fs
 
             ε_f = ε_fp + ε_fs
         else:
@@ -449,8 +477,8 @@ class StrainHIFullScenario(HIFullScenario):
         if intermediate_far is True:
             # Intermediate-far field strain (ε_if ∝ 1/r²)
 
-            B_ifp = xset['IFP'].values[0][:, np.newaxis]
-            B_ifs = xset['IFS'].values[0][:, np.newaxis]
+            B_ifp = xset["IFP"].values[0][:, np.newaxis]
+            B_ifs = xset["IFS"].values[0][:, np.newaxis]
 
             T_ifp = np.zeros((n_rec, data_len), dtype=np.float64)
             T_ifs = np.zeros_like(T_ifp)
@@ -458,8 +486,8 @@ class StrainHIFullScenario(HIFullScenario):
                 T_ifp[i_rec] = pad_stf(tp_all[i_rec], Ddot, deltat, data_len)
                 T_ifs[i_rec] = pad_stf(ts_all[i_rec], Ddot, deltat, data_len)
 
-            ε_ifp = +c['1/4πρ'] * c['1/α']**3 * c['1/r2'] * B_ifp * T_ifp
-            ε_ifs = -c['1/4πρ'] * c['1/β']**3 * c['1/r2'] * B_ifs * T_ifs
+            ε_ifp = +c["1/4πρ"] * c["1/α"] ** 3 * c["1/r2"] * B_ifp * T_ifp
+            ε_ifs = -c["1/4πρ"] * c["1/β"] ** 3 * c["1/r2"] * B_ifs * T_ifs
 
             ε_if = ε_ifp + ε_ifs
         else:
@@ -468,8 +496,8 @@ class StrainHIFullScenario(HIFullScenario):
         if intermediate_near is True:
             # Intermediate-near field strain (ε_in ∝ 1/r³)
 
-            B_inp = xset['INP'].values[0][:, np.newaxis]
-            B_ins = xset['INS'].values[0][:, np.newaxis]
+            B_inp = xset["INP"].values[0][:, np.newaxis]
+            B_ins = xset["INS"].values[0][:, np.newaxis]
 
             T_inp = np.zeros((n_rec, data_len), dtype=np.float64)
             T_ins = np.zeros_like(T_inp)
@@ -477,8 +505,8 @@ class StrainHIFullScenario(HIFullScenario):
                 T_inp[i_rec] = pad_stf(tp_all[i_rec], D, deltat, data_len)
                 T_ins[i_rec] = pad_stf(ts_all[i_rec], D, deltat, data_len)
 
-            ε_inp = +c['1/4πρ'] * c['1/α']**2 * c['1/r3'] * B_inp * T_inp
-            ε_ins = -c['1/4πρ'] * c['1/β']**2 * c['1/r3'] * B_ins * T_ins
+            ε_inp = +c["1/4πρ"] * c["1/α"] ** 2 * c["1/r3"] * B_inp * T_inp
+            ε_ins = -c["1/4πρ"] * c["1/β"] ** 2 * c["1/r3"] * B_ins * T_ins
 
             ε_in = ε_inp + ε_ins
         else:
@@ -487,33 +515,35 @@ class StrainHIFullScenario(HIFullScenario):
         if near is True:
             # Near-field strain (ε_n ∝ 1/r⁵)
 
-            B_n = xset['N'].values[0][:, np.newaxis]
+            B_n = xset["N"].values[0][:, np.newaxis]
 
             T_n = np.zeros((n_rec, data_len), dtype=np.float64)
             for i_rec in range(n_rec):
                 T_n[i_rec] = convolve_stf(
-                    tp_all[i_rec], ts_all[i_rec], D, deltat, data_len)
+                    tp_all[i_rec], ts_all[i_rec], D, deltat, data_len
+                )
 
-            ε_n = +c['1/4πρ'] * c['1/r5'] * B_n * T_n
+            ε_n = +c["1/4πρ"] * c["1/r5"] * B_n * T_n
         else:
             ε_n = np.zeros((n_rec, data_len), dtype=np.float64)
 
         # ----------
 
         # Dimension and coordinate names when saving strains into `xr.DataSet`
-        dims = ['i_reciever', 'time']
-        coords = {'time': np.arange(data_len) * self.deltat}
+        dims = ["i_reciever", "time"]
+        coords = {"time": np.arange(data_len) * self.deltat}
 
         if math.isclose(
-                math.remainder(cable.channel_spacing, cable.grid_spacing), 0.0,
-                rel_tol=0.0, abs_tol=1e-9):
+            math.remainder(cable.channel_spacing, cable.grid_spacing),
+            0.0,
+            rel_tol=0.0,
+            abs_tol=1e-9,
+        ):
             # Apply moving average
 
             # Reshape `εₓₓ` arrays (n_rec, data_len)->(1, n_rec, data_len)
             # Stack all along axis=0, x_in.shape == (4, 1, n_rec, data_len)
-            x_in = np.stack(
-                [e[np.newaxis, :] for e in (ε_f, ε_if, ε_in, ε_n)],
-                axis=0)
+            x_in = np.stack([e[np.newaxis, :] for e in (ε_f, ε_if, ε_in, ε_n)], axis=0)
 
             # Kernel height is number of grid *points* per GL
             kH = int(round(cable.gauge_len / cable.grid_spacing)) + 1
@@ -525,25 +555,27 @@ class StrainHIFullScenario(HIFullScenario):
             x_out = x_out.numpy()
 
             data_vars = {
-                'F': (dims, x_out[0].squeeze(axis=0)),
-                'IF': (dims, x_out[1].squeeze(axis=0)),
-                'IN': (dims, x_out[2].squeeze(axis=0)),
-                'N': (dims, x_out[3].squeeze(axis=0)),
-                'total': (dims, x_out.sum(axis=0).squeeze(axis=0))}
+                "F": (dims, x_out[0].squeeze(axis=0)),
+                "IF": (dims, x_out[1].squeeze(axis=0)),
+                "IN": (dims, x_out[2].squeeze(axis=0)),
+                "N": (dims, x_out[3].squeeze(axis=0)),
+                "total": (dims, x_out.sum(axis=0).squeeze(axis=0)),
+            }
         else:
             # Average point strains over separate GLs
             # n_rec = n_channels * n_grids_per_gl
             x_in = np.stack([ε_f, ε_if, ε_in, ε_n], axis=0)
             x_out = np.mean(
-                np.stack(np.split(x_in, cable.n_channels, axis=1), axis=1),
-                axis=2)
+                np.stack(np.split(x_in, cable.n_channels, axis=1), axis=1), axis=2
+            )
 
             data_vars = {
-                'F': (dims, x_out[0]),
-                'IF': (dims, x_out[1]),
-                'IN': (dims, x_out[2]),
-                'N': (dims, x_out[3]),
-                'total': (dims, x_out.sum(axis=0))}
+                "F": (dims, x_out[0]),
+                "IF": (dims, x_out[1]),
+                "IN": (dims, x_out[2]),
+                "N": (dims, x_out[3]),
+                "total": (dims, x_out.sum(axis=0)),
+            }
 
         return xr.Dataset(data_vars=data_vars, coords=coords)
 
@@ -555,8 +587,8 @@ class DisplacementHIFullScenario(HIFullScenario):
     """
 
     def process(
-            self, source, receivers, stf_duration,
-            far=True, intermediate=True, near=True):
+        self, source, receivers, stf_duration, far=True, intermediate=True, near=True
+    ):
         """
         Parameters
         ----------
@@ -592,24 +624,30 @@ class DisplacementHIFullScenario(HIFullScenario):
         a = [rec.effective_latlon + (rec.depth,) for rec in receivers]
         rlats, rlons, rdepths = zip(*a)
         dists_3d, dircos_vecs = calc_relative_data(
-            *event.effective_latlon, event.depth, rlats, rlons, rdepths)
+            *event.effective_latlon, event.depth, rlats, rlons, rdepths
+        )
 
         # Cache powers of 3-D distances, arrays of shape (n_rec, 1, 1)
         self._cache_dist_recips(
-            dists_3d=dists_3d[:, np.newaxis, np.newaxis],
-            quantity='displacement')
+            dists_3d=dists_3d[:, np.newaxis, np.newaxis], quantity="displacement"
+        )
 
         # Radiation-pattern factors
         mt_symmat = np.asarray(source.pyrocko_moment_tensor().m())
         xset = calc_radiation_patterns_mt(
-            mt_symmat, dircos_vecs, quantity='displacement',
-            far=far, intermediate=intermediate, near=near)
+            mt_symmat,
+            dircos_vecs,
+            quantity="displacement",
+            far=far,
+            intermediate=intermediate,
+            near=near,
+        )
 
         # Time-dependent seismic moment, M(t). It should be normalised
         # to one, otherwise the source magnitude becomes meaningless.
         ramp_stf = SmoothRampSTF(duration=stf_duration, anchor=-1.0)
         _, D = ramp_stf.discretize_t(self.deltat, 0.0, scale=False)
-        assert D.max() == 1.0, 'Seismic moment STF should be normalized to 1'
+        assert D.max() == 1.0, "Seismic moment STF should be normalized to 1"
 
         # Seismic moment-rate, dM(t)/dt
         gaus_stf = GaussianSTF(duration=stf_duration, anchor=-1.0)
@@ -631,8 +669,8 @@ class DisplacementHIFullScenario(HIFullScenario):
             # Far-field displacement (u_f ∝ 1/r)
 
             # Radiation patterns, arrays of shape (n_rec, 3, 1)
-            A_fp = column_stack_3d(xset['FP'].values)
-            A_fs = column_stack_3d(xset['FS'].values)
+            A_fp = column_stack_3d(xset["FP"].values)
+            A_fs = column_stack_3d(xset["FS"].values)
 
             # STF values, arrays of shape (n_rec, 1, data_len)
             T_fp = np.zeros((n_rec, 1, data_len), dtype=np.float64)
@@ -641,8 +679,8 @@ class DisplacementHIFullScenario(HIFullScenario):
                 T_fp[i_rec] = pad_stf(tp_all[i_rec], Ddot, deltat, data_len)
                 T_fs[i_rec] = pad_stf(ts_all[i_rec], Ddot, deltat, data_len)
 
-            u_fp = +c['1/4πρ'] * c['1/α']**3 * c['1/r'] * A_fp * T_fp
-            u_fs = -c['1/4πρ'] * c['1/β']**3 * c['1/r'] * A_fs * T_fs
+            u_fp = +c["1/4πρ"] * c["1/α"] ** 3 * c["1/r"] * A_fp * T_fp
+            u_fs = -c["1/4πρ"] * c["1/β"] ** 3 * c["1/r"] * A_fs * T_fs
 
             u_f = u_fp + u_fs
         else:
@@ -651,8 +689,8 @@ class DisplacementHIFullScenario(HIFullScenario):
         if intermediate is True:
             # Intermediate-field displacement (u_i ∝ 1/r²)
 
-            A_ip = column_stack_3d(xset['IP'].values)
-            A_is = column_stack_3d(xset['IS'].values)
+            A_ip = column_stack_3d(xset["IP"].values)
+            A_is = column_stack_3d(xset["IS"].values)
 
             T_ip = np.zeros((n_rec, 1, data_len), dtype=np.float64)
             T_is = np.zeros_like(T_ip)
@@ -660,8 +698,8 @@ class DisplacementHIFullScenario(HIFullScenario):
                 T_ip[i_rec] = pad_stf(tp_all[i_rec], D, deltat, data_len)
                 T_is[i_rec] = pad_stf(ts_all[i_rec], D, deltat, data_len)
 
-            u_ip = +c['1/4πρ'] * c['1/α']**2 * c['1/r2'] * A_ip * T_ip
-            u_is = -c['1/4πρ'] * c['1/β']**2 * c['1/r2'] * A_is * T_is
+            u_ip = +c["1/4πρ"] * c["1/α"] ** 2 * c["1/r2"] * A_ip * T_ip
+            u_is = -c["1/4πρ"] * c["1/β"] ** 2 * c["1/r2"] * A_is * T_is
 
             u_i = u_ip + u_is
         else:
@@ -670,14 +708,15 @@ class DisplacementHIFullScenario(HIFullScenario):
         if near is True:
             # Near-field displacement (u_n ∝ 1/r⁵)
 
-            A_n = column_stack_3d(xset['N'].values)
+            A_n = column_stack_3d(xset["N"].values)
 
             T_n = np.zeros((n_rec, 1, data_len), dtype=np.float64)
             for i_rec in range(n_rec):
                 T_n[i_rec] = convolve_stf(
-                    tp_all[i_rec], ts_all[i_rec], D, deltat, data_len)
+                    tp_all[i_rec], ts_all[i_rec], D, deltat, data_len
+                )
 
-            u_n = +c['1/4πρ'] * c['1/r4'] * A_n * T_n
+            u_n = +c["1/4πρ"] * c["1/r4"] * A_n * T_n
         else:
             u_n = np.zeros((n_rec, 3, data_len), dtype=np.float64)
 
@@ -686,21 +725,19 @@ class DisplacementHIFullScenario(HIFullScenario):
 
         # Save results into a `xr.DataSet` with following dimensions and
         # coordinates. Each array is of shape (n_rec, 3, data_len).
-        dims = ['i_reciever', 'axis', 'time']
-        coords = {
-            'axis': ['x', 'y', 'z'],
-            'time': np.arange(data_len) * self.deltat}
+        dims = ["i_reciever", "axis", "time"]
+        coords = {"axis": ["x", "y", "z"], "time": np.arange(data_len) * self.deltat}
         data_vars = {
             k: (dims, v)
-            for k, v in zip(
-                ['F', 'I', 'N', 'total'],
-                [u_f, u_i, u_n, u_total])}
+            for k, v in zip(["F", "I", "N", "total"], [u_f, u_i, u_n, u_total])
+        }
 
         return xr.Dataset(data_vars=data_vars, coords=coords)
 
 
 __all__ = [
-    'calc_radiation_patterns_mt',
-    'HIFullScenario',
-    'StrainHIFullScenario',
-    'DisplacementHIFullScenario']
+    "DisplacementHIFullScenario",
+    "HIFullScenario",
+    "StrainHIFullScenario",
+    "calc_radiation_patterns_mt",
+]

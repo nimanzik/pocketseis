@@ -108,25 +108,19 @@ def cartesian_rotmat(theta, axis):
         Rotation matrix that rotates vectors/matrices by angle(s) of
         `theta` about the given `axis`.
     """
-    if not (axis := axis.lower()) in (valid_axes := ['x', 'y', 'z']):
+    if (axis := axis.lower()) not in (valid_axes := ["x", "y", "z"]):
         raise ValueError(f"Valid axis values are {valid_axes}")
 
     theta = np.asarray(theta, dtype=np.float64)
     ct = np.cos(theta)
     st = np.sin(theta)
 
-    if axis == 'x':
-        rotmat = np.array([[1.0, 0.0, 0.0],
-                           [0.0, +ct, -st],
-                           [0.0, +st, +ct]])
-    elif axis == 'y':
-        rotmat = np.array([[+ct, 0.0, +st],
-                           [0.0, 1.0, 0.0],
-                           [-st, 0.0, ct]])
-    elif axis == 'z':
-        rotmat = np.array([[+ct, -st, 0.0],
-                           [+st, +ct, 0.0],
-                           [0.0, 0.0, 1.0]])
+    if axis == "x":
+        rotmat = np.array([[1.0, 0.0, 0.0], [0.0, +ct, -st], [0.0, +st, +ct]])
+    elif axis == "y":
+        rotmat = np.array([[+ct, 0.0, +st], [0.0, 1.0, 0.0], [-st, 0.0, ct]])
+    elif axis == "z":
+        rotmat = np.array([[+ct, -st, 0.0], [+st, +ct, 0.0], [0.0, 0.0, 1.0]])
     else:
         raise ValueError(f"Invalid axis value {axis}")
 
@@ -164,26 +158,26 @@ def rotate_mt(m, from_to):
     m = np.asarray(m, dtype=np.float64)
     from_to = from_to.upper()
 
-    if from_to == 'NED->NWU':
-        rotmat = cartesian_rotmat(np.pi, 'x')
+    if from_to == "NED->NWU":
+        rotmat = cartesian_rotmat(np.pi, "x")
 
-    elif from_to == 'NWU->NED':
-        rotmat = cartesian_rotmat(-np.pi, 'x')
+    elif from_to == "NWU->NED":
+        rotmat = cartesian_rotmat(-np.pi, "x")
 
-    elif from_to == 'NED->ENU':
-        rotmat1 = cartesian_rotmat(np.pi, 'x')
-        rotmat2 = cartesian_rotmat(-np.pi / 2.0, 'z')
+    elif from_to == "NED->ENU":
+        rotmat1 = cartesian_rotmat(np.pi, "x")
+        rotmat2 = cartesian_rotmat(-np.pi / 2.0, "z")
         rotmat = rotmat1 @ rotmat2
 
-    elif from_to == 'ENU->NED':
-        rotmat1 = cartesian_rotmat(np.pi / 2.0, 'z')
-        rotmat2 = cartesian_rotmat(-np.pi, 'x')
+    elif from_to == "ENU->NED":
+        rotmat1 = cartesian_rotmat(np.pi / 2.0, "z")
+        rotmat2 = cartesian_rotmat(-np.pi, "x")
         rotmat = rotmat1 @ rotmat2
 
     else:
         raise ValueError(f"Conversion is not supported: {from_to}")
 
-    return (rotmat.T @ m @ rotmat)
+    return rotmat.T @ m @ rotmat
 
 
 def ne2rt_rotmat(bazi):
@@ -217,13 +211,11 @@ def ne2rt_rotmat(bazi):
     where ``ne`` is an ndarray of shape ``(2, n_samples)``, whose rows are
     ``N`` and ``E`` components of the seismogram, respectively.
     """
-
     bazi = np.deg2rad(np.asarray(bazi, dtype=np.float64))
     sb = np.sin(bazi)
     cb = np.cos(bazi)
 
-    rotmat_2d = np.array([[-cb, +sb],
-                          [-sb, -cb]])
+    rotmat_2d = np.array([[-cb, +sb], [-sb, -cb]])
 
     if np.ndim(rotmat_2d) == 3:
         # Reshape to (n_bazi, 2, 2)
@@ -278,9 +270,9 @@ def zne2lqt_rotmat(bazi, incid):
     si = np.sin(incid)
     ci = np.cos(incid)
 
-    rotmat_3d = np.array([[ci, si, 0.0],
-                          [-si * cb, ci * cb, sb],
-                          [-si * sb, ci * sb, -cb]])
+    rotmat_3d = np.array(
+        [[ci, si, 0.0], [-si * cb, ci * cb, sb], [-si * sb, ci * sb, -cb]]
+    )
     if rotmat_3d.ndim == 3:
         # Reshape to (n_bazi, 3, 3) or (n_incid, 3, 3)
         rotmat_3d = np.moveaxis(rotmat_3d, 2, 0)
@@ -288,4 +280,4 @@ def zne2lqt_rotmat(bazi, incid):
     return np.squeeze(rotmat_3d)
 
 
-__all__ = ['cartesian_rotmat', 'rotate_mt', 'ne2rt_rotmat', 'zne2lqt_rotmat']
+__all__ = ["cartesian_rotmat", "ne2rt_rotmat", "rotate_mt", "zne2lqt_rotmat"]

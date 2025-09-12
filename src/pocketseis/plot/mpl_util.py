@@ -1,10 +1,8 @@
-"""
-Utility functions for matplotlib.
-"""
+"""Utility functions for matplotlib."""
 
+import numpy as np
 from matplotlib import ticker as mticker
 from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
-import numpy as np
 
 
 def transform_data2axes(ax, points_indata):
@@ -28,7 +26,6 @@ def transform_data2axes(ax, points_indata):
     poins_inaxes : ndarray of shape (n_points, n_dimensions)
         Transformed points.
     """
-
     # ## First, from data to display coordinate
     points_indisp = ax.transData.transform(points_indata)
 
@@ -54,7 +51,6 @@ def sci_tickformatter(scilimits=(-3, 3)):
     formatter : py:class:`matplotlib.ticker.ScalarFormatter`
         Formatter that format ticks as scientific numbers.
     """
-
     formatter = mticker.ScalarFormatter(useMathText=True)
     formatter.set_scientific(True)
     formatter.set_powerlimits(scilimits)
@@ -91,7 +87,7 @@ def sci_strformatter(x, decimals=2, precision=None, exponent=None):
     if not exponent:
         exponent = int(np.floor(np.log10(abs(x))))
 
-    coeff = round(x/float(10**exponent), decimals)
+    coeff = round(x / float(10**exponent), decimals)
 
     if precision is None:
         precision = decimals
@@ -99,7 +95,7 @@ def sci_strformatter(x, decimals=2, precision=None, exponent=None):
     return r"${0:.{1}f}\times10^{{{2:d}}}$".format(coeff, precision, exponent)
 
 
-def create_cbar_axes(ax, position, size, pad='3%'):
+def create_cbar_axes(ax, position, size, pad="3%"):
     """
     Create a new axes into which a colorbar can be drawn. Using an axes
     divider, created axes has the same height (or width) of the main axes.
@@ -131,14 +127,14 @@ def create_cbar_axes(ax, position, size, pad='3%'):
     :py:func:`matplotlib.figure.Figure.add_axes` (e.g.
     ``cax=fig.add_axes([left, bottom, width, height]``)
     """
-
     divider = make_axes_locatable(ax)
     cax = divider.append_axes(position, size, pad=pad)
     return cax
 
 
 __all__ = [
-    'transform_data2axes',
-    'sci_tickformatter',
-    'sci_strformatter',
-    'create_cbar_axes']
+    "create_cbar_axes",
+    "sci_strformatter",
+    "sci_tickformatter",
+    "transform_data2axes",
+]

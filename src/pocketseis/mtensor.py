@@ -1,16 +1,11 @@
-"""
-Utility functions for seismic moment tensor.
-"""
+"""Utility functions for seismic moment tensor."""
 
 import numpy as np
-
 from pyrocko import moment_tensor as pmt
 
 
 def tuple6_to_symmat(a):
-    """
-    Create symmetric 3-by-3 moment-tensor matrix from its 6
-    independent values.
+    """Create symmetric moment-tensor matrix from its 6 independent values.
 
     Parameters
     ----------
@@ -25,14 +20,13 @@ def tuple6_to_symmat(a):
     """
     a11, a22, a33, a12, a13, a23 = a
 
-    return np.array([[a11, a12, a13],
-                     [a12, a22, a23],
-                     [a13, a23, a33]], dtype=np.float64)
+    return np.array(
+        [[a11, a12, a13], [a12, a22, a23], [a13, a23, a33]], dtype=np.float64
+    )
 
 
 def symmat_to_tuple6(m):
-    """
-    Get non-redundant components of symmetric 3-by-3 moment-tensor matrix.
+    """Get non-redundant components of symmetric 3-by-3 moment-tensor matrix.
 
     m : ndarray, shape (3, 3)
         Plain seismic moment tensor as symmetric 2-D array.
@@ -44,16 +38,16 @@ def symmat_to_tuple6(m):
         (M11, M22, M33, M12, M13, M23) order.
     """
     m = np.asarray(m, dtype=np.float64)
-    assert m.shape == (3, 3), 'moment tensor is a symmetric 3-by-3 array'
+    assert m.shape == (3, 3), "moment tensor is a symmetric 3-by-3 array"
     a = tuple(m.diagonal()) + (m[0, 1], m[0, 2], m[1, 2])
 
     return tuple(a)
 
 
 def moment_to_magnitude(moment):
-    """
-    Converts scalar moment, $M_0$, to moment magnitude, $M_w$ using
-    eq. 9.73, Shearer (2009)::
+    r"""Convert scalar moment, $M_0$, to moment magnitude, $M_w$.
+
+    It uses eq. 9.73, Shearer (2009)::
 
         $M_w = \frac{2}{3} [log_10 M_0 - 9.1]$,
 
@@ -73,9 +67,9 @@ def moment_to_magnitude(moment):
 
 
 def magnitude_to_moment(mag):
-    """
-    Converts moment magnitude, $M_w$, to scalar moment, $M_0$ using
-    eq. 9.73, Shearer (2009)::
+    r"""Convert moment magnitude, $M_w$, to scalar moment, $M_0$.
+
+    It uses eq. 9.73, Shearer (2009)::
 
         $M_w = \frac{2}{3} [log_10 M_0 - 9.1]$,
 
@@ -91,12 +85,12 @@ def magnitude_to_moment(mag):
     moment : float
         Scalar moment, , $M_0$. Unit: Nm.
     """
-    return 10**(1.5 * mag + 9.1)
+    return 10 ** (1.5 * mag + 9.1)
 
 
 def normalize_mt(m):
-    """
-    Unit-norm moment tensor.
+    """Unit-norm moment tensor.
+
     Normalizes moment tensor by its Euclidean (Frobenius) norm.
 
     Parameters
@@ -113,15 +107,16 @@ def normalize_mt(m):
     if m.ndim != 2 or m.shape != (3, 3):
         raise ValueError("'m' must be an array of shape (3, 3)")
 
-    m_norm = m / np.linalg.norm(m, ord='fro')
+    m_norm = m / np.linalg.norm(m, ord="fro")
     return m_norm
 
 
 def denormalize_mt(m_norm, moment):
-    """
-    Construct norm-preserving moment tensor from a unit-norm moment
-    tensor and its total moment following Silver and Jordan (1982) and
-    using eq. 9.8, Shearer (2009).
+    """Construct norm-preserving moment tensor.
+
+    It constructs a norm-preserving moment tensor from a unit-norm moment
+    tensor and its total moment following Silver and Jordan (1982) and using
+    eq. 9.8, Shearer (2009).
 
     Parameters
     ----------
@@ -153,9 +148,10 @@ def denormalize_mt(m_norm, moment):
 
 
 def angular_distance(m1, m2):
-    """
-    Angular distance between two moment tensors given by eq. 2b of
-    Tape & Tape (2019, GJI).
+    """Angular distance between two moment tensors.
+
+    It calculates angular distance between two moment tensors given by eq. 2b
+    of Tape & Tape (2019, GJI).
 
     Parameters
     ----------
@@ -168,16 +164,17 @@ def angular_distance(m1, m2):
         Angular distance between two moment tensors `m1` and `m2`.
     """
     m1m2_inner = np.trace(np.dot(m1.T, m2))
-    m1_norm = np.linalg.norm(m1, ord='fro')
-    m2_norm = np.linalg.norm(m2, ord='fro')
+    m1_norm = np.linalg.norm(m1, ord="fro")
+    m2_norm = np.linalg.norm(m2, ord="fro")
     chi = np.arccos(m1m2_inner / (m1_norm * m2_norm))
     return chi
 
 
 def euclidean_distance(m1, m2):
-    """
-    Euclidean distance between two moment tensors given by eq. 3 of
-    Tape & Tape (2019, GJI). Distances calculated by using this equation
+    """Euclidean distance between two moment tensors.
+
+    It calculates Euclidean distance between two moment tensors given by eq. 3
+    of Tape & Tape (2019, GJI). Distances calculated by using this equation
     range between 0 and 1, that correspond to identical and opposite
     seismic radiation patterns between the two compared moment tensors,
     respectively.
@@ -196,9 +193,8 @@ def euclidean_distance(m1, m2):
     return d
 
 
-def random_mt(n_src=1, method='S5', seed=None):
-    """
-    Generate uniform distribution of unit-norm moment tensors.
+def random_mt(n_src=1, method="S5", seed=None):
+    """Generate uniform distribution of unit-norm moment tensors.
 
     Parameters
     ----------
@@ -226,7 +222,7 @@ def random_mt(n_src=1, method='S5', seed=None):
     if not isinstance(method, str):
         raise TypeError("expects str for method")
 
-    if (method := method.upper()) not in (valid_methods := ['S5', 'R6', 'QT']):
+    if (method := method.upper()) not in (valid_methods := ["S5", "R6", "QT"]):
         raise ValueError(f"valid methods are {valid_methods}")
 
     if (seed is not None) and (not isinstance(seed, int)):
@@ -237,7 +233,7 @@ def random_mt(n_src=1, method='S5', seed=None):
     sqrt2 = np.sqrt(2.0)
 
     # Eq. 6 of Staehler & Sigloch (2014, SE)
-    if method == 'S5':
+    if method == "S5":
         xs = np.zeros((5, n_src), dtype=np.float64)
         for i_row in range(5):
             xs[i_row] = rng.uniform(low=0.0, high=1.0, size=n_src)
@@ -265,7 +261,7 @@ def random_mt(n_src=1, method='S5', seed=None):
             mt_list.append(pmt.MomentTensor(m=m))
 
     # Method 1 of section 9 of Tape & Tape (2015, GJI)
-    elif method == 'R6':
+    elif method == "R6":
         vs = np.zeros((6, n_src), dtype=np.float64)
         for i_row in range(6):
             vs[i_row] = rng.normal(loc=0.0, scale=1.0, size=n_src)
@@ -290,7 +286,7 @@ def random_mt(n_src=1, method='S5', seed=None):
         hs = rng.uniform(low=0.0, high=1.0, size=n_src)
 
         mt_list = []
-        for (u, v, κ, σ, h) in zip(us, vs, κs, σs, hs):
+        for u, v, κ, σ, h in zip(us, vs, κs, σs, hs):
             m = MTQTSource(u=u, v=v, kappa=κ, sigma=σ, h=h).m9_ned
             mt_list.append(pmt.MomentTensor(m=np.asmatrix(m)))
 
@@ -298,11 +294,12 @@ def random_mt(n_src=1, method='S5', seed=None):
 
 
 __all__ = [
-    'tuple6_to_symmat',
-    'symmat_to_tuple6',
-    'moment_to_magnitude',
-    'magnitude_to_moment',
-    'normalize_mt',
-    'denormalize_mt',
-    'angular_distance',
-    'euclidean_distance']
+    "angular_distance",
+    "denormalize_mt",
+    "euclidean_distance",
+    "magnitude_to_moment",
+    "moment_to_magnitude",
+    "normalize_mt",
+    "symmat_to_tuple6",
+    "tuple6_to_symmat",
+]
